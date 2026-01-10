@@ -30,7 +30,7 @@ env = environ.Env(
 environ.Env.read_env(os.path.join(BASE_DIR, ".env"))
 SECRET_KEY = env("SECRET_KEY")
 DEBUG = env("DEBUG")
-ALLOWED_HOSTS = ["g2-gym.onrender.com", "localhost", "127.0.0.1", "jitugym.com", "api.jitugym.com","https://g2-backup-1.onrender.com"]
+ALLOWED_HOSTS = ["g2-gym.onrender.com", "localhost", "127.0.0.1", "jitugym.com", "api.jitugym.com","g2-backup-1.onrender.com"]
 
 
 
