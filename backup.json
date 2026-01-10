@@ -1,0 +1,2157 @@
+[
+{
+    "model": "admin.logentry",
+    "pk": 1,
+    "fields": {
+        "action_time": "2025-10-19T13:13:25.473Z",
+        "user": 1,
+        "content_type": 6,
+        "object_id": "24",
+        "object_repr": "Test T (+251901234567)",
+        "action_flag": 2,
+        "change_message": "[{\"changed\": {\"fields\": [\"Is active\"]}}]"
+    }
+},
+{
+    "model": "admin.logentry",
+    "pk": 2,
+    "fields": {
+        "action_time": "2025-11-10T17:51:31.064Z",
+        "user": 1,
+        "content_type": 6,
+        "object_id": "35",
+        "object_repr": "John Doe (+251900000000)",
+        "action_flag": 2,
+        "change_message": "[{\"changed\": {\"fields\": [\"Is active\"]}}]"
+    }
+},
+{
+    "model": "admin.logentry",
+    "pk": 3,
+    "fields": {
+        "action_time": "2025-11-11T17:58:27.896Z",
+        "user": 1,
+        "content_type": 6,
+        "object_id": "35",
+        "object_repr": "John Doe (+251900000000)",
+        "action_flag": 3,
+        "change_message": ""
+    }
+},
+{
+    "model": "admin.logentry",
+    "pk": 4,
+    "fields": {
+        "action_time": "2025-11-11T17:58:27.896Z",
+        "user": 1,
+        "content_type": 6,
+        "object_id": "51",
+        "object_repr": "recent regisration (+251900000003)",
+        "action_flag": 3,
+        "change_message": ""
+    }
+},
+{
+    "model": "admin.logentry",
+    "pk": 5,
+    "fields": {
+        "action_time": "2025-11-11T18:00:58.058Z",
+        "user": 1,
+        "content_type": 6,
+        "object_id": "59",
+        "object_repr": "Example exapmle (+251900110011)",
+        "action_flag": 3,
+        "change_message": ""
+    }
+},
+{
+    "model": "admin.logentry",
+    "pk": 6,
+    "fields": {
+        "action_time": "2025-11-11T18:00:58.058Z",
+        "user": 1,
+        "content_type": 6,
+        "object_id": "77",
+        "object_repr": "Example debru (+251900990099)",
+        "action_flag": 3,
+        "change_message": ""
+    }
+},
+{
+    "model": "admin.logentry",
+    "pk": 7,
+    "fields": {
+        "action_time": "2025-11-11T18:00:58.059Z",
+        "user": 1,
+        "content_type": 6,
+        "object_id": "68",
+        "object_repr": "Yoniii D (+251901004566)",
+        "action_flag": 3,
+        "change_message": ""
+    }
+},
+{
+    "model": "admin.logentry",
+    "pk": 8,
+    "fields": {
+        "action_time": "2025-11-11T18:00:58.059Z",
+        "user": 1,
+        "content_type": 6,
+        "object_id": "34",
+        "object_repr": "Te T (+251901234566)",
+        "action_flag": 3,
+        "change_message": ""
+    }
+},
+{
+    "model": "admin.logentry",
+    "pk": 9,
+    "fields": {
+        "action_time": "2025-11-11T18:00:58.059Z",
+        "user": 1,
+        "content_type": 6,
+        "object_id": "24",
+        "object_repr": "Test T (+251901234567)",
+        "action_flag": 3,
+        "change_message": ""
+    }
+},
+{
+    "model": "admin.logentry",
+    "pk": 10,
+    "fields": {
+        "action_time": "2025-11-11T18:00:58.059Z",
+        "user": 1,
+        "content_type": 6,
+        "object_id": "43",
+        "object_repr": "jj o (+251903457892)",
+        "action_flag": 3,
+        "change_message": ""
+    }
+},
+{
+    "model": "admin.logentry",
+    "pk": 11,
+    "fields": {
+        "action_time": "2025-11-11T18:00:58.059Z",
+        "user": 1,
+        "content_type": 6,
+        "object_id": "62",
+        "object_repr": "test exapmle (+251967676767)",
+        "action_flag": 3,
+        "change_message": ""
+    }
+},
+{
+    "model": "admin.logentry",
+    "pk": 12,
+    "fields": {
+        "action_time": "2025-11-11T18:00:58.059Z",
+        "user": 1,
+        "content_type": 6,
+        "object_id": "19",
+        "object_repr": "Ruth Amenu (+251977101892)",
+        "action_flag": 3,
+        "change_message": ""
+    }
+},
+{
+    "model": "admin.logentry",
+    "pk": 13,
+    "fields": {
+        "action_time": "2025-11-11T18:00:58.059Z",
+        "user": 1,
+        "content_type": 6,
+        "object_id": "10",
+        "object_repr": "Yonas Debru Ameha (+251977101894)",
+        "action_flag": 3,
+        "change_message": ""
+    }
+},
+{
+    "model": "admin.logentry",
+    "pk": 14,
+    "fields": {
+        "action_time": "2025-11-11T18:00:58.059Z",
+        "user": 1,
+        "content_type": 6,
+        "object_id": "20",
+        "object_repr": "Ruth hob (+251977101898)",
+        "action_flag": 3,
+        "change_message": ""
+    }
+},
+{
+    "model": "admin.logentry",
+    "pk": 15,
+    "fields": {
+        "action_time": "2025-11-11T18:00:58.059Z",
+        "user": 1,
+        "content_type": 6,
+        "object_id": "60",
+        "object_repr": "MM NN (+251977777777)",
+        "action_flag": 3,
+        "change_message": ""
+    }
+},
+{
+    "model": "admin.logentry",
+    "pk": 16,
+    "fields": {
+        "action_time": "2025-11-11T18:00:58.059Z",
+        "user": 1,
+        "content_type": 6,
+        "object_id": "7",
+        "object_repr": "test tola (+251978421350)",
+        "action_flag": 3,
+        "change_message": ""
+    }
+},
+{
+    "model": "admin.logentry",
+    "pk": 17,
+    "fields": {
+        "action_time": "2025-11-11T18:00:58.059Z",
+        "user": 1,
+        "content_type": 6,
+        "object_id": "3",
+        "object_repr": "blue lock (+251978421353)",
+        "action_flag": 3,
+        "change_message": ""
+    }
+},
+{
+    "model": "admin.logentry",
+    "pk": 18,
+    "fields": {
+        "action_time": "2025-11-11T18:00:58.060Z",
+        "user": 1,
+        "content_type": 6,
+        "object_id": "2",
+        "object_repr": "Example Example (+251978421357)",
+        "action_flag": 3,
+        "change_message": ""
+    }
+},
+{
+    "model": "admin.logentry",
+    "pk": 19,
+    "fields": {
+        "action_time": "2025-11-11T18:00:58.060Z",
+        "user": 1,
+        "content_type": 6,
+        "object_id": "53",
+        "object_repr": "cafe man (+251999999999)",
+        "action_flag": 3,
+        "change_message": ""
+    }
+},
+{
+    "model": "admin.logentry",
+    "pk": 20,
+    "fields": {
+        "action_time": "2025-11-11T18:00:58.060Z",
+        "user": 1,
+        "content_type": 6,
+        "object_id": "66",
+        "object_repr": "lets test (+261923457000)",
+        "action_flag": 3,
+        "change_message": ""
+    }
+},
+{
+    "model": "admin.logentry",
+    "pk": 21,
+    "fields": {
+        "action_time": "2025-11-11T18:15:31.742Z",
+        "user": 1,
+        "content_type": 6,
+        "object_id": "82",
+        "object_repr": "lol example (+251909090908)",
+        "action_flag": 3,
+        "change_message": ""
+    }
+},
+{
+    "model": "admin.logentry",
+    "pk": 22,
+    "fields": {
+        "action_time": "2025-11-11T18:15:31.742Z",
+        "user": 1,
+        "content_type": 6,
+        "object_id": "49",
+        "object_repr": "test exapmle (+251909090909)",
+        "action_flag": 3,
+        "change_message": ""
+    }
+},
+{
+    "model": "admin.logentry",
+    "pk": 23,
+    "fields": {
+        "action_time": "2025-11-11T18:15:31.743Z",
+        "user": 1,
+        "content_type": 6,
+        "object_id": "89",
+        "object_repr": "test debru (+251909090998)",
+        "action_flag": 3,
+        "change_message": ""
+    }
+},
+{
+    "model": "admin.logentry",
+    "pk": 24,
+    "fields": {
+        "action_time": "2025-11-11T18:15:31.743Z",
+        "user": 1,
+        "content_type": 6,
+        "object_id": "9",
+        "object_repr": "vol col (+251909231412)",
+        "action_flag": 3,
+        "change_message": ""
+    }
+},
+{
+    "model": "admin.logentry",
+    "pk": 25,
+    "fields": {
+        "action_time": "2025-11-11T18:15:31.744Z",
+        "user": 1,
+        "content_type": 6,
+        "object_id": "46",
+        "object_repr": "John Doe (+251910000000)",
+        "action_flag": 3,
+        "change_message": ""
+    }
+},
+{
+    "model": "admin.logentry",
+    "pk": 26,
+    "fields": {
+        "action_time": "2025-11-11T18:15:31.744Z",
+        "user": 1,
+        "content_type": 6,
+        "object_id": "65",
+        "object_repr": "abebe kebede (+251910000007)",
+        "action_flag": 3,
+        "change_message": ""
+    }
+},
+{
+    "model": "admin.logentry",
+    "pk": 27,
+    "fields": {
+        "action_time": "2025-11-11T18:15:31.744Z",
+        "user": 1,
+        "content_type": 6,
+        "object_id": "67",
+        "object_repr": "Yonas kebede (+251910000008)",
+        "action_flag": 3,
+        "change_message": ""
+    }
+},
+{
+    "model": "admin.logentry",
+    "pk": 28,
+    "fields": {
+        "action_time": "2025-11-11T18:15:31.745Z",
+        "user": 1,
+        "content_type": 6,
+        "object_id": "73",
+        "object_repr": "Yonas kebede (+2519100000333)",
+        "action_flag": 3,
+        "change_message": ""
+    }
+},
+{
+    "model": "admin.logentry",
+    "pk": 29,
+    "fields": {
+        "action_time": "2025-11-11T18:15:31.745Z",
+        "user": 1,
+        "content_type": 6,
+        "object_id": "58",
+        "object_repr": "test Example (+251910101010)",
+        "action_flag": 3,
+        "change_message": ""
+    }
+},
+{
+    "model": "admin.logentry",
+    "pk": 30,
+    "fields": {
+        "action_time": "2025-11-11T18:15:31.745Z",
+        "user": 1,
+        "content_type": 6,
+        "object_id": "45",
+        "object_repr": "newww tr (+251911111110)",
+        "action_flag": 3,
+        "change_message": ""
+    }
+},
+{
+    "model": "admin.logentry",
+    "pk": 31,
+    "fields": {
+        "action_time": "2025-11-11T18:15:31.745Z",
+        "user": 1,
+        "content_type": 6,
+        "object_id": "75",
+        "object_repr": "Yonas debru (+251955555567)",
+        "action_flag": 3,
+        "change_message": ""
+    }
+},
+{
+    "model": "admin.logentry",
+    "pk": 32,
+    "fields": {
+        "action_time": "2025-11-11T18:15:31.746Z",
+        "user": 1,
+        "content_type": 6,
+        "object_id": "76",
+        "object_repr": "Yonas debru (+251955555569)",
+        "action_flag": 3,
+        "change_message": ""
+    }
+},
+{
+    "model": "admin.logentry",
+    "pk": 33,
+    "fields": {
+        "action_time": "2025-11-11T18:15:31.746Z",
+        "user": 1,
+        "content_type": 6,
+        "object_id": "69",
+        "object_repr": "Yonas debru (+251955555577)",
+        "action_flag": 3,
+        "change_message": ""
+    }
+},
+{
+    "model": "admin.logentry",
+    "pk": 34,
+    "fields": {
+        "action_time": "2025-11-11T18:15:31.746Z",
+        "user": 1,
+        "content_type": 6,
+        "object_id": "72",
+        "object_repr": "Yonas debru (+251955555589)",
+        "action_flag": 3,
+        "change_message": ""
+    }
+},
+{
+    "model": "admin.logentry",
+    "pk": 35,
+    "fields": {
+        "action_time": "2025-11-11T18:15:31.747Z",
+        "user": 1,
+        "content_type": 6,
+        "object_id": "79",
+        "object_repr": "hey there (+251955555597)",
+        "action_flag": 3,
+        "change_message": ""
+    }
+},
+{
+    "model": "admin.logentry",
+    "pk": 36,
+    "fields": {
+        "action_time": "2025-11-11T18:15:31.747Z",
+        "user": 1,
+        "content_type": 6,
+        "object_id": "71",
+        "object_repr": "Yonas debru (+251955555599)",
+        "action_flag": 3,
+        "change_message": ""
+    }
+},
+{
+    "model": "admin.logentry",
+    "pk": 37,
+    "fields": {
+        "action_time": "2025-11-11T18:15:31.747Z",
+        "user": 1,
+        "content_type": 6,
+        "object_id": "87",
+        "object_repr": "mihret jkk (+251955555888)",
+        "action_flag": 3,
+        "change_message": ""
+    }
+},
+{
+    "model": "admin.logentry",
+    "pk": 38,
+    "fields": {
+        "action_time": "2025-11-11T18:15:31.748Z",
+        "user": 1,
+        "content_type": 6,
+        "object_id": "80",
+        "object_repr": "muse Example (+251957905790)",
+        "action_flag": 3,
+        "change_message": ""
+    }
+},
+{
+    "model": "admin.logentry",
+    "pk": 39,
+    "fields": {
+        "action_time": "2025-11-11T18:15:31.748Z",
+        "user": 1,
+        "content_type": 6,
+        "object_id": "31",
+        "object_repr": "muse example (+251957921300)",
+        "action_flag": 3,
+        "change_message": ""
+    }
+},
+{
+    "model": "admin.logentry",
+    "pk": 40,
+    "fields": {
+        "action_time": "2025-11-11T18:15:31.748Z",
+        "user": 1,
+        "content_type": 6,
+        "object_id": "50",
+        "object_repr": "test exapmle (+251957921311)",
+        "action_flag": 3,
+        "change_message": ""
+    }
+},
+{
+    "model": "admin.logentry",
+    "pk": 41,
+    "fields": {
+        "action_time": "2025-11-11T18:15:31.748Z",
+        "user": 1,
+        "content_type": 6,
+        "object_id": "26",
+        "object_repr": "Example example (+251957921323)",
+        "action_flag": 3,
+        "change_message": ""
+    }
+},
+{
+    "model": "admin.logentry",
+    "pk": 42,
+    "fields": {
+        "action_time": "2025-11-11T18:15:31.748Z",
+        "user": 1,
+        "content_type": 6,
+        "object_id": "27",
+        "object_repr": "lol exapmle (+251957921330)",
+        "action_flag": 3,
+        "change_message": ""
+    }
+},
+{
+    "model": "admin.logentry",
+    "pk": 43,
+    "fields": {
+        "action_time": "2025-11-11T18:15:31.748Z",
+        "user": 1,
+        "content_type": 6,
+        "object_id": "8",
+        "object_repr": "Example Example (+251957921371)",
+        "action_flag": 3,
+        "change_message": ""
+    }
+},
+{
+    "model": "admin.logentry",
+    "pk": 44,
+    "fields": {
+        "action_time": "2025-11-11T18:15:31.749Z",
+        "user": 1,
+        "content_type": 6,
+        "object_id": "29",
+        "object_repr": "Example exapmle (+251957921377)",
+        "action_flag": 3,
+        "change_message": ""
+    }
+},
+{
+    "model": "admin.logentry",
+    "pk": 45,
+    "fields": {
+        "action_time": "2025-11-11T18:15:31.749Z",
+        "user": 1,
+        "content_type": 6,
+        "object_id": "14",
+        "object_repr": "test debru (+251957921380)",
+        "action_flag": 3,
+        "change_message": ""
+    }
+},
+{
+    "model": "admin.logentry",
+    "pk": 46,
+    "fields": {
+        "action_time": "2025-11-11T18:15:31.749Z",
+        "user": 1,
+        "content_type": 6,
+        "object_id": "28",
+        "object_repr": "muse exapmle (+251957921388)",
+        "action_flag": 3,
+        "change_message": ""
+    }
+},
+{
+    "model": "admin.logentry",
+    "pk": 47,
+    "fields": {
+        "action_time": "2025-11-11T18:15:31.749Z",
+        "user": 1,
+        "content_type": 6,
+        "object_id": "88",
+        "object_repr": "ll ss (+251964444444)",
+        "action_flag": 3,
+        "change_message": ""
+    }
+},
+{
+    "model": "sessions.session",
+    "pk": "0igu9xc59qaikxmuidwv908koctq2ly6",
+    "fields": {
+        "session_data": ".eJxVizsKAjEQQO-SWpZMvqOlJ_AGYTKZEBGyYDbV4t1V2ELb99lVorm1NIc8072oiwJ1-mWZ-CH9K4h5nX0by4HGcmtrl-sR_F2NRvssTgcR1CGcnSaC7ASMNdFGjZ5KRm8rMmbI0TNrA0CA2ZJ3wRZXq6jXGygOM1M:1v1SMP:0QiB9tTa1thEn9yDEow2Mxw47v4eCRSTxctRMQejKyw",
+        "expire_date": "2025-10-08T16:28:53.032Z"
+    }
+},
+{
+    "model": "sessions.session",
+    "pk": "0kbyuxp33a07iscmzviwfzaqgfmj4cjt",
+    "fields": {
+        "session_data": ".eJxVizsKAjEQQO-SWpZMvqOlJ_AGYTKZEBGyYDbV4t1V2ELb99lVorm1NIc8072oiwJ1-mWZ-CH9K4h5nX0by4HGcmtrl-sR_F2NRvssTgcR1CGcnSaC7ASMNdFGjZ5KRm8rMmbI0TNrA0CA2ZJ3wRZXq6jXGygOM1M:1v1SMT:1blT9dqOYLFM_Z952SrLaSxjQ1TAra2-Rk5IGfMIs_Y",
+        "expire_date": "2025-10-08T16:28:57.481Z"
+    }
+},
+{
+    "model": "sessions.session",
+    "pk": "1yo1fwndioktzwvezxsv78hj0a2015el",
+    "fields": {
+        "session_data": ".eJxVizsKAjEQQO-SWpZMvqOlJ_AGYTKZEBGyYDbV4t1V2ELb99lVorm1NIc8072oiwJ1-mWZ-CH9K4h5nX0by4HGcmtrl-sR_F2NRvssTgcR1CGcnSaC7ASMNdFGjZ5KRm8rMmbI0TNrA0CA2ZJ3wRZXq6jXGygOM1M:1v6Yg6:wJ9GPml5cS4dnqnH7Q34I2M7lop98dWch_oT95lP-mw",
+        "expire_date": "2025-10-22T18:14:18.172Z"
+    }
+},
+{
+    "model": "sessions.session",
+    "pk": "2gcgm8l63ymsuf7ryb1byobhqzr5yb88",
+    "fields": {
+        "session_data": ".eJxVizsKAjEQQO-SWpZMvqOlJ_AGYTKZEBGyYDbV4t1V2ELb99lVorm1NIc8072oiwJ1-mWZ-CH9K4h5nX0by4HGcmtrl-sR_F2NRvssTgcR1CGcnSaC7ASMNdFGjZ5KRm8rMmbI0TNrA0CA2ZJ3wRZXq6jXGygOM1M:1vFwxv:12wj7azEZlJt5LGfP4idJ6tScLBVrvbYHHAz9Gsp33o",
+        "expire_date": "2025-11-17T15:59:31.470Z"
+    }
+},
+{
+    "model": "sessions.session",
+    "pk": "35ycnpwuaezz1yjy6i7ixyul23vvws89",
+    "fields": {
+        "session_data": ".eJxVizsKAjEQQO-SWpZMvqOlJ_AGYTKZEBGyYDbV4t1V2ELb99lVorm1NIc8072oiwJ1-mWZ-CH9K4h5nX0by4HGcmtrl-sR_F2NRvssTgcR1CGcnSaC7ASMNdFGjZ5KRm8rMmbI0TNrA0CA2ZJ3wRZXq6jXGygOM1M:1vIsNF:Wt5y2vLDMIUUGFzcIw0q0zHgycZ6967T38ZNWdWcqVM",
+        "expire_date": "2025-11-25T17:41:45.109Z"
+    }
+},
+{
+    "model": "sessions.session",
+    "pk": "4fur6469n3gzph1i3mfc09u7lbr9iayy",
+    "fields": {
+        "session_data": ".eJxVi0sKwjAQQO-StZR8p61LT-ANwsx0hoiQgmlW4t1toQvdvs_bZOxbyb3JKz8WczXBXH4ZIT-lHgKZ1163NpyoDfeyVrmdwd9VsJV9IYzekvVxsjGhsI7ohRQUZqeaVIkoApB3HNKic-AkOIk4KzA6JPP5Am5rNQo:1v1h2U:Q0diQkXkwZw-rLZGIsfo-Y6YerFwh8q0fXpt9xPEz2c",
+        "expire_date": "2025-10-09T08:09:18.792Z"
+    }
+},
+{
+    "model": "sessions.session",
+    "pk": "cxpttq9rv6u4xaxpjib6yw5ny7s83pkz",
+    "fields": {
+        "session_data": ".eJxVi0EOwiAQRe_C2jQgjIBLT-ANms8wBGNCEykr491tky509_P-e281Y6x1Hl1e8yOrq3JRnX5hAj-l7Q-Yl9HWPh2oT_e6NLkdwl9V0euWRB2LDSgMeGjomBEK74POxSUvSYIUb4SyBTFd2Gw8WEfWJM6kPl-cDTTt:1vGKB7:oHDraMUNDHrKyinRNsuP6gFUurnOyEslWKITh0BBE7k",
+        "expire_date": "2025-11-18T16:46:41.744Z"
+    }
+},
+{
+    "model": "sessions.session",
+    "pk": "ex89c3b4eft2t5ql4vrxs1jtnajc5n6v",
+    "fields": {
+        "session_data": ".eJxVizsKAjEQQO-SWpZMvqOlJ_AGYTKZEBGyYDbV4t1V2ELb99lVorm1NIc8072oiwJ1-mWZ-CH9K4h5nX0by4HGcmtrl-sR_F2NRvssTgcR1CGcnSaC7ASMNdFGjZ5KRm8rMmbI0TNrA0CA2ZJ3wRZXq6jXGygOM1M:1v8K6n:ZI_oU9WQHyX_xcMkUMCu9yGeunP2oPwfEaTEjmXQFrI",
+        "expire_date": "2025-10-27T15:05:09.302Z"
+    }
+},
+{
+    "model": "sessions.session",
+    "pk": "fjmwj894o8mfghzfeblyajgt06dxh8pr",
+    "fields": {
+        "session_data": ".eJxVi0EKAjEMRe_StQytIUl16Qm8QUnTlorQATtdDd7dCrPQ3ef993YTZGw1jJ5f4ZHM1VycOf3CKPrM7fuI6jra1pcD9eVe15Zvh_BXVel1JuhiyaCq3mIqnqywkrOeBWNhPk_OQECIBA7IpWTzXIKUWAGSeX8AadozbQ:1vKCYJ:byVa0CVtKseDdMnefl7sDojjsr5HKXSy7dNpoAH0vgQ",
+        "expire_date": "2025-11-29T09:26:39.268Z"
+    }
+},
+{
+    "model": "sessions.session",
+    "pk": "xhbj1jjk8agt50v1d1ruybtx5k1cu0xa",
+    "fields": {
+        "session_data": ".eJxVizsKAjEQQO-SWpZMvqOlJ_AGYTKZEBGyYDbV4t1V2ELb99lVorm1NIc8072oiwJ1-mWZ-CH9K4h5nX0by4HGcmtrl-sR_F2NRvssTgcR1CGcnSaC7ASMNdFGjZ5KRm8rMmbI0TNrA0CA2ZJ3wRZXq6jXGygOM1M:1vIW1V:VWfA4bXYSPpD7Oa9EWarEU_Z2bbbV3tTVf4MLRp9LYg",
+        "expire_date": "2025-11-24T17:49:49.928Z"
+    }
+},
+{
+    "model": "sessions.session",
+    "pk": "xt07jtqdokjw64vla28gnltvnl8ukpcw",
+    "fields": {
+        "session_data": ".eJxVi0EKAjEMRe_StQytIUl16Qm8QUnTlorQATtdDd7dCrPQ3ef993YTZGw1jJ5f4ZHM1VycOf3CKPrM7fuI6jra1pcD9eVe15Zvh_BXVel1JuhiyaCq3mIqnqywkrOeBWNhPk_OQECIBA7IpWTzXIKUWAGSeX8AadozbQ:1vKCYH:cyag2OpQrix_DhrmqHu9iu_b9P4Gva8lfzx94dMyXeM",
+        "expire_date": "2025-11-29T09:26:37.057Z"
+    }
+},
+{
+    "model": "sessions.session",
+    "pk": "yajv1a81mdjy8ppfdspomyc00r7wcsv6",
+    "fields": {
+        "session_data": ".eJxVi0sOwiAQQO_C2jQUnJni0hN4AzLMQDAmNJGyary7mnSh2_fZTeSx1Th6fsa7moshc_plieWR21ewyDra1qcD9elW15avR_B3Ve71swRimrEEECZIzufEZyreoi6eHHvRQkDOUXBApaSwqAVEOytnQQ7m9QZE-TO2:1v6sRm:42FFLpNQQoL4U4Tc2X4DSRbuMYUl0Gqj7btHwMx2RV0",
+        "expire_date": "2025-10-23T15:20:50.999Z"
+    }
+},
+{
+    "model": "accounts.user",
+    "pk": 1,
+    "fields": {
+        "password": "pbkdf2_sha256$1000000$r1VoSxPY3nM33CVVJx7ooR$b4FtN9iTtYM5+BFT+HbJWBF+ppoEHZHZuEuOd2SUIpw=",
+        "last_login": "2025-11-11T17:49:30.681Z",
+        "is_superuser": true,
+        "phone_number": "+251966277836",
+        "first_name": "Yosef",
+        "last_name": "Wubshet",
+        "role": "manager",
+        "is_active": true,
+        "is_staff": true,
+        "groups": [],
+        "user_permissions": []
+    }
+},
+{
+    "model": "accounts.user",
+    "pk": 21,
+    "fields": {
+        "password": "pbkdf2_sha256$1000000$u81tCVoA8vi8TFyopFNly9$tVi49r+lSSMypAKFyrc4//V3wNLKLgNMKHJzrS5b06s=",
+        "last_login": null,
+        "is_superuser": false,
+        "phone_number": "+251977101884",
+        "first_name": "Hello",
+        "last_name": "Amenu",
+        "role": "member",
+        "is_active": true,
+        "is_staff": false,
+        "groups": [],
+        "user_permissions": []
+    }
+},
+{
+    "model": "accounts.user",
+    "pk": 22,
+    "fields": {
+        "password": "pbkdf2_sha256$1000000$nCTTlwF9aoRA2YdcoL0jAl$rIM51ije8rY7/BUti4eGHuA267LP0aMgnLypDTsCthw=",
+        "last_login": null,
+        "is_superuser": false,
+        "phone_number": "+251977101890",
+        "first_name": "sali",
+        "last_name": "ha",
+        "role": "member",
+        "is_active": true,
+        "is_staff": false,
+        "groups": [],
+        "user_permissions": []
+    }
+},
+{
+    "model": "accounts.user",
+    "pk": 30,
+    "fields": {
+        "password": "pbkdf2_sha256$1000000$zcdA0dVGrcNlCb7b0wZB6g$H7UZD1HOSjJ/2lLXy8m/yl7sBZumIiMycCpTxE5ENHU=",
+        "last_login": null,
+        "is_superuser": false,
+        "phone_number": "+251912345600",
+        "first_name": "test",
+        "last_name": "debru",
+        "role": "member",
+        "is_active": true,
+        "is_staff": false,
+        "groups": [],
+        "user_permissions": []
+    }
+},
+{
+    "model": "accounts.user",
+    "pk": 91,
+    "fields": {
+        "password": "pbkdf2_sha256$1000000$9pGE580evTddlUoA8esGCg$xScabVheWu9q7IYDvprW2DnBsm2Ar+2SzoSjwIeISb4=",
+        "last_login": "2025-11-15T09:26:39.067Z",
+        "is_superuser": false,
+        "phone_number": "+251900000000",
+        "first_name": "Amsale",
+        "last_name": "Taddese",
+        "role": "receptionist",
+        "is_active": true,
+        "is_staff": false,
+        "groups": [],
+        "user_permissions": []
+    }
+},
+{
+    "model": "accounts.user",
+    "pk": 93,
+    "fields": {
+        "password": "pbkdf2_sha256$1000000$m3ZrIucMb8jW0PPa4BzLgd$UF71mnJjvrLadhJa6PRakkJvaVe+Lyf7E0URC2kDYrk=",
+        "last_login": null,
+        "is_superuser": false,
+        "phone_number": "+251977101892",
+        "first_name": "adis",
+        "last_name": "abebe",
+        "role": "member",
+        "is_active": true,
+        "is_staff": false,
+        "groups": [],
+        "user_permissions": []
+    }
+},
+{
+    "model": "accounts.user",
+    "pk": 94,
+    "fields": {
+        "password": "pbkdf2_sha256$1000000$UVcWGCLJxTON8oqKOBFj7q$vhIdgdmQ6EqNJ/VA+DPDNw6ZUTf9//QVazwGW4dVsrM=",
+        "last_login": null,
+        "is_superuser": false,
+        "phone_number": "+251953104443",
+        "first_name": "seid",
+        "last_name": "usman  hasen",
+        "role": "member",
+        "is_active": true,
+        "is_staff": false,
+        "groups": [],
+        "user_permissions": []
+    }
+},
+{
+    "model": "accounts.user",
+    "pk": 96,
+    "fields": {
+        "password": "pbkdf2_sha256$1000000$GttfwBNEah2SNSSZEweNIc$rWEkKSqZ+1IRy6hXgLubqNEfsY6al/pi4/1fNFp2Zwg=",
+        "last_login": null,
+        "is_superuser": false,
+        "phone_number": "+251911719250",
+        "first_name": "leul",
+        "last_name": "mesfin",
+        "role": "member",
+        "is_active": true,
+        "is_staff": false,
+        "groups": [],
+        "user_permissions": []
+    }
+},
+{
+    "model": "accounts.user",
+    "pk": 101,
+    "fields": {
+        "password": "pbkdf2_sha256$1000000$opRkfBvuuASy63yX12NFVj$KolqL7Os7xaE8XjftiSvf8cO+fdDD4A9r+NSQOAmgws=",
+        "last_login": null,
+        "is_superuser": false,
+        "phone_number": "+251994920461",
+        "first_name": "abdulbasit",
+        "last_name": "anwar",
+        "role": "member",
+        "is_active": true,
+        "is_staff": false,
+        "groups": [],
+        "user_permissions": []
+    }
+},
+{
+    "model": "accounts.user",
+    "pk": 102,
+    "fields": {
+        "password": "pbkdf2_sha256$1000000$a5E6zUumeBilLryX42HWau$LvIJNJQQcX51hSXu4LEFmh5uo6kXZmngAV00x4RyMTk=",
+        "last_login": null,
+        "is_superuser": false,
+        "phone_number": "+25135621493",
+        "first_name": "sued",
+        "last_name": "sultan",
+        "role": "member",
+        "is_active": true,
+        "is_staff": false,
+        "groups": [],
+        "user_permissions": []
+    }
+},
+{
+    "model": "accounts.user",
+    "pk": 103,
+    "fields": {
+        "password": "pbkdf2_sha256$1000000$irNA6xh6S83mieaap8JtxQ$gfkABcHEwS+aaOPfMO2QdiLg+NX7KfFB5BilxE5tEfc=",
+        "last_login": null,
+        "is_superuser": false,
+        "phone_number": "+25172241271",
+        "first_name": "betelhem",
+        "last_name": "misganaw",
+        "role": "member",
+        "is_active": true,
+        "is_staff": false,
+        "groups": [],
+        "user_permissions": []
+    }
+},
+{
+    "model": "accounts.user",
+    "pk": 104,
+    "fields": {
+        "password": "pbkdf2_sha256$1000000$4Jn9WlR105i2309QldD85o$phNWzxsvjUO5B6ibwmREZrRpGlcF90fUUPbqYZT1JME=",
+        "last_login": null,
+        "is_superuser": false,
+        "phone_number": "+25119217398",
+        "first_name": "yisak",
+        "last_name": "denur",
+        "role": "member",
+        "is_active": true,
+        "is_staff": false,
+        "groups": [],
+        "user_permissions": []
+    }
+},
+{
+    "model": "accounts.user",
+    "pk": 105,
+    "fields": {
+        "password": "pbkdf2_sha256$1000000$FHg5XJEwAiCWWIeSYc8DQF$VgHOp9HAidqHhsj1hYKPBUQ+fRob0MAsjkD7pq0VLNg=",
+        "last_login": null,
+        "is_superuser": false,
+        "phone_number": "+25137984412",
+        "first_name": "eyerus",
+        "last_name": "gebrtsadik",
+        "role": "member",
+        "is_active": true,
+        "is_staff": false,
+        "groups": [],
+        "user_permissions": []
+    }
+},
+{
+    "model": "accounts.user",
+    "pk": 106,
+    "fields": {
+        "password": "pbkdf2_sha256$1000000$eP58SG0yYtMeCC1BoJRxqz$4al5cUv4+zCIkW+/a9/GXa8+zjHRqGpWAcryr2MEhJ8=",
+        "last_login": null,
+        "is_superuser": false,
+        "phone_number": "+25120393595",
+        "first_name": "ebrahim",
+        "last_name": "husen",
+        "role": "member",
+        "is_active": true,
+        "is_staff": false,
+        "groups": [],
+        "user_permissions": []
+    }
+},
+{
+    "model": "accounts.user",
+    "pk": 107,
+    "fields": {
+        "password": "pbkdf2_sha256$1000000$r3osqAR3a9nK3dyb24TXd4$rRPP+MiqAgdSGiNvrjpmL0W7O2arKNrlZ2y2ITd8zZY=",
+        "last_login": null,
+        "is_superuser": false,
+        "phone_number": "+25111289641",
+        "first_name": "alemayehu",
+        "last_name": "bedada",
+        "role": "member",
+        "is_active": true,
+        "is_staff": false,
+        "groups": [],
+        "user_permissions": []
+    }
+},
+{
+    "model": "accounts.user",
+    "pk": 108,
+    "fields": {
+        "password": "pbkdf2_sha256$1000000$3rrE12S51Uqo2USF9o0dr7$oPtcOBJc88E3x6cKMy2CqPWtGgUrU1r2f1ex4cUa8gk=",
+        "last_login": null,
+        "is_superuser": false,
+        "phone_number": "+251911394447",
+        "first_name": "Tewodros",
+        "last_name": "Yitagesu",
+        "role": "member",
+        "is_active": true,
+        "is_staff": false,
+        "groups": [],
+        "user_permissions": []
+    }
+},
+{
+    "model": "accounts.user",
+    "pk": 109,
+    "fields": {
+        "password": "pbkdf2_sha256$1000000$dLofPhLbbjT6pRP10H7Dy4$ghluhIZuZlqhifSWThvK2fm9VlZadfBFVtiz+ZFpjeo=",
+        "last_login": null,
+        "is_superuser": false,
+        "phone_number": "+251920362574",
+        "first_name": "Kaleab",
+        "last_name": "Ashebir",
+        "role": "member",
+        "is_active": true,
+        "is_staff": false,
+        "groups": [],
+        "user_permissions": []
+    }
+},
+{
+    "model": "accounts.user",
+    "pk": 110,
+    "fields": {
+        "password": "pbkdf2_sha256$1000000$SQkwWMlQUJb2rE8y4Wfopt$XK6zDcv8EefBeUkbkcNtJlle0sscSqeU0h+VDWMTIRo=",
+        "last_login": null,
+        "is_superuser": false,
+        "phone_number": "+251911854576",
+        "first_name": "Sayew",
+        "last_name": "Dsalegn",
+        "role": "member",
+        "is_active": true,
+        "is_staff": false,
+        "groups": [],
+        "user_permissions": []
+    }
+},
+{
+    "model": "accounts.user",
+    "pk": 111,
+    "fields": {
+        "password": "pbkdf2_sha256$1000000$vNXiD1qbYaijWltzSBmj0w$B7fI4LiN9fFNdLpw+MHaZJ7X57ESnk33Kjt4JMW/NSY=",
+        "last_login": null,
+        "is_superuser": false,
+        "phone_number": "+251913665290",
+        "first_name": "Wondesen",
+        "last_name": "Belhu",
+        "role": "member",
+        "is_active": true,
+        "is_staff": false,
+        "groups": [],
+        "user_permissions": []
+    }
+},
+{
+    "model": "accounts.user",
+    "pk": 112,
+    "fields": {
+        "password": "pbkdf2_sha256$1000000$lmKorMLIFr8bVsTW02yCnA$1Xj+KGhIWRssC109pzMM3GD0CyKBG5t5GgmtNTX7e0o=",
+        "last_login": null,
+        "is_superuser": false,
+        "phone_number": "+251919026291",
+        "first_name": "Eyob",
+        "last_name": "Mekonen",
+        "role": "member",
+        "is_active": true,
+        "is_staff": false,
+        "groups": [],
+        "user_permissions": []
+    }
+},
+{
+    "model": "accounts.user",
+    "pk": 113,
+    "fields": {
+        "password": "pbkdf2_sha256$1000000$LEpFcYveriU5I647sSOCJm$w7v18USuoWUWoBTpKq1t+IFl0BVFAkaYVVh+rFU0FxU=",
+        "last_login": null,
+        "is_superuser": false,
+        "phone_number": "+251911080348",
+        "first_name": "Fitsum",
+        "last_name": "shiferaw",
+        "role": "member",
+        "is_active": true,
+        "is_staff": false,
+        "groups": [],
+        "user_permissions": []
+    }
+},
+{
+    "model": "accounts.user",
+    "pk": 114,
+    "fields": {
+        "password": "pbkdf2_sha256$1000000$QSduojRz0s9Bk8qExlmNNO$OkDXzpV8dUQhhuv1HNyZogW2K3O0NllS4OsX2yqcoIE=",
+        "last_login": null,
+        "is_superuser": false,
+        "phone_number": "+251940111606",
+        "first_name": "Rmedan",
+        "last_name": "Muhamed",
+        "role": "member",
+        "is_active": true,
+        "is_staff": false,
+        "groups": [],
+        "user_permissions": []
+    }
+},
+{
+    "model": "accounts.user",
+    "pk": 115,
+    "fields": {
+        "password": "pbkdf2_sha256$1000000$8dCm79wzIjuqAzSXglBJFB$YyodEB918AaZttby+E7O9p0OauISt/Is69ymWssP8d4=",
+        "last_login": null,
+        "is_superuser": false,
+        "phone_number": "+251921500268",
+        "first_name": "Mengistu",
+        "last_name": "Fikre",
+        "role": "member",
+        "is_active": true,
+        "is_staff": false,
+        "groups": [],
+        "user_permissions": []
+    }
+},
+{
+    "model": "accounts.user",
+    "pk": 116,
+    "fields": {
+        "password": "pbkdf2_sha256$1000000$kZvYVXki1CkrVHJkT8tbJC$AFMm9poiqWn7c3LTtGRC7xKTsldg7AXvAvcs7t94a6s=",
+        "last_login": null,
+        "is_superuser": false,
+        "phone_number": "+251985240404",
+        "first_name": "Dawad",
+        "last_name": "Muhamed",
+        "role": "member",
+        "is_active": true,
+        "is_staff": false,
+        "groups": [],
+        "user_permissions": []
+    }
+},
+{
+    "model": "accounts.user",
+    "pk": 117,
+    "fields": {
+        "password": "pbkdf2_sha256$1000000$P3dBtGaHwwXcrYbmHLZ63v$aSaPRmt8LKDHgv886INLOQbW+KInnFMvUX6q2wYm0S4=",
+        "last_login": null,
+        "is_superuser": false,
+        "phone_number": "+251945171848",
+        "first_name": "Henok",
+        "last_name": "Abebe",
+        "role": "member",
+        "is_active": true,
+        "is_staff": false,
+        "groups": [],
+        "user_permissions": []
+    }
+},
+{
+    "model": "accounts.user",
+    "pk": 118,
+    "fields": {
+        "password": "pbkdf2_sha256$1000000$QrcfxvIoKKIDSOQLZ146SZ$zU1u6UpbBpLrefo/S+4SEYP3T9yOXlKDiotCoSO4EbU=",
+        "last_login": null,
+        "is_superuser": false,
+        "phone_number": "+251934072018",
+        "first_name": "Eyosiyas",
+        "last_name": "tatek",
+        "role": "member",
+        "is_active": true,
+        "is_staff": false,
+        "groups": [],
+        "user_permissions": []
+    }
+},
+{
+    "model": "accounts.user",
+    "pk": 119,
+    "fields": {
+        "password": "pbkdf2_sha256$1000000$cn43Z56xa0e2spz40nF0DP$A4hrzNjKEp0S62S8PFMwaGPBSneTSDgCAxIBv5flSsU=",
+        "last_login": null,
+        "is_superuser": false,
+        "phone_number": "+251906750111",
+        "first_name": "Selam",
+        "last_name": "Negash",
+        "role": "member",
+        "is_active": true,
+        "is_staff": false,
+        "groups": [],
+        "user_permissions": []
+    }
+},
+{
+    "model": "accounts.user",
+    "pk": 120,
+    "fields": {
+        "password": "pbkdf2_sha256$1000000$oXuWwOpF1oQeNhSpysFT9q$WnRjAtW3vn8FibHjwWzGarBwQm/jiyeChSes02TOXyg=",
+        "last_login": null,
+        "is_superuser": false,
+        "phone_number": "+215948328391",
+        "first_name": "Firomisa",
+        "last_name": "Hawi",
+        "role": "member",
+        "is_active": true,
+        "is_staff": false,
+        "groups": [],
+        "user_permissions": []
+    }
+},
+{
+    "model": "accounts.user",
+    "pk": 121,
+    "fields": {
+        "password": "pbkdf2_sha256$1000000$FihXWHhjbyIbhDU9BlfZk5$GULM6hN3BNYnysvYTCXmIkA7HHBXXqGGtxHjDVGmlVM=",
+        "last_login": null,
+        "is_superuser": false,
+        "phone_number": "+215910741452",
+        "first_name": "Ashenafi",
+        "last_name": "Asefa",
+        "role": "member",
+        "is_active": true,
+        "is_staff": false,
+        "groups": [],
+        "user_permissions": []
+    }
+},
+{
+    "model": "accounts.user",
+    "pk": 122,
+    "fields": {
+        "password": "pbkdf2_sha256$1000000$nmdBtbkNYu9lXFtzpFjFE8$+Ub684NX+GEYSwh9IwfJibZkX91m7Q7Di7layRvZgbw=",
+        "last_login": null,
+        "is_superuser": false,
+        "phone_number": "+215962116363",
+        "first_name": "Mohamed",
+        "last_name": "Seid",
+        "role": "member",
+        "is_active": true,
+        "is_staff": false,
+        "groups": [],
+        "user_permissions": []
+    }
+},
+{
+    "model": "accounts.user",
+    "pk": 123,
+    "fields": {
+        "password": "pbkdf2_sha256$1000000$VRjQVH4vlbp5iV545f099m$KTz0tC9CpxJdVQcLhjBWdLRG6Z4T6iBNXr76wwrg6nk=",
+        "last_login": null,
+        "is_superuser": false,
+        "phone_number": "+2159130050935",
+        "first_name": "Nure",
+        "last_name": "Sewali",
+        "role": "member",
+        "is_active": true,
+        "is_staff": false,
+        "groups": [],
+        "user_permissions": []
+    }
+},
+{
+    "model": "accounts.user",
+    "pk": 124,
+    "fields": {
+        "password": "pbkdf2_sha256$1000000$YTYkBFhhFZRr36SEE59qZZ$7S9Fab2jsSIt+iQ4jV2gKDWuz/Wvv4KkmI9ilRT6pm8=",
+        "last_login": null,
+        "is_superuser": false,
+        "phone_number": "+215919208208",
+        "first_name": "Wubshet",
+        "last_name": "Bogale",
+        "role": "member",
+        "is_active": true,
+        "is_staff": false,
+        "groups": [],
+        "user_permissions": []
+    }
+},
+{
+    "model": "accounts.user",
+    "pk": 125,
+    "fields": {
+        "password": "pbkdf2_sha256$1000000$sBP0yQloohNzfHo6q9XTEo$wXsbw+NaXQ7R9vzY3M3V43iQ2F/wZOnfUj0MxsixWOg=",
+        "last_login": null,
+        "is_superuser": false,
+        "phone_number": "+215922671233",
+        "first_name": "Bereket",
+        "last_name": "Yemane",
+        "role": "member",
+        "is_active": true,
+        "is_staff": false,
+        "groups": [],
+        "user_permissions": []
+    }
+},
+{
+    "model": "accounts.user",
+    "pk": 126,
+    "fields": {
+        "password": "pbkdf2_sha256$1000000$yHL2CsNDrk3ADA3ERzyibW$pzfseoZfLlrgnW35dcVQxpTaUtjiFkuhclfBrayptnc=",
+        "last_login": null,
+        "is_superuser": false,
+        "phone_number": "+215911628710",
+        "first_name": "Yeabsira",
+        "last_name": "Lakew",
+        "role": "member",
+        "is_active": true,
+        "is_staff": false,
+        "groups": [],
+        "user_permissions": []
+    }
+},
+{
+    "model": "accounts.user",
+    "pk": 128,
+    "fields": {
+        "password": "pbkdf2_sha256$1000000$JpN2o5eKIFmnnNT7hae8Xe$FRRTMnTPoFiyHy0Qom+pkDZAQKd8WrVkWofNiWd/wIc=",
+        "last_login": null,
+        "is_superuser": false,
+        "phone_number": "+215910733219",
+        "first_name": "Abdurehaman",
+        "last_name": "Yesuf",
+        "role": "member",
+        "is_active": true,
+        "is_staff": false,
+        "groups": [],
+        "user_permissions": []
+    }
+},
+{
+    "model": "accounts.user",
+    "pk": 129,
+    "fields": {
+        "password": "pbkdf2_sha256$1000000$ZfFO4IX87apInFmayIASbc$Khfu9hESavjLGNYZqR9wPXamWOZLR4G6kEa4gG0igOw=",
+        "last_login": null,
+        "is_superuser": false,
+        "phone_number": "+2151940505908",
+        "first_name": "Endalkachew",
+        "last_name": "Nuramo",
+        "role": "member",
+        "is_active": true,
+        "is_staff": false,
+        "groups": [],
+        "user_permissions": []
+    }
+},
+{
+    "model": "accounts.user",
+    "pk": 130,
+    "fields": {
+        "password": "pbkdf2_sha256$1000000$knYhtTCI3N3LzpHlPSgvh7$9wis64UYVDbGmeL5iL+Abv7vLm+pjsBuznYg3a4j1Zo=",
+        "last_login": null,
+        "is_superuser": false,
+        "phone_number": "+2151910733219",
+        "first_name": "Fuad",
+        "last_name": "Yesuf",
+        "role": "member",
+        "is_active": true,
+        "is_staff": false,
+        "groups": [],
+        "user_permissions": []
+    }
+},
+{
+    "model": "accounts.user",
+    "pk": 133,
+    "fields": {
+        "password": "pbkdf2_sha256$1000000$bWv51xYKt6xNLXWo5F4LgD$umFfWiB+vOzU4aPm0EdkyriQR1B+lxqqCBn/gskBPoQ=",
+        "last_login": null,
+        "is_superuser": false,
+        "phone_number": "+251911111111",
+        "first_name": "Test",
+        "last_name": "1",
+        "role": "trainer",
+        "is_active": true,
+        "is_staff": false,
+        "groups": [],
+        "user_permissions": []
+    }
+},
+{
+    "model": "accounts.user",
+    "pk": 137,
+    "fields": {
+        "password": "pbkdf2_sha256$1000000$V7ddaKC59GWkC0Tm7bMj6w$MC6Y7Mus7eSrpkYt6doqbAOVm7Is+rI5GUOz7jkaD1k=",
+        "last_login": null,
+        "is_superuser": false,
+        "phone_number": "+251901111111",
+        "first_name": "Test",
+        "last_name": "5",
+        "role": "trainer",
+        "is_active": true,
+        "is_staff": false,
+        "groups": [],
+        "user_permissions": []
+    }
+},
+{
+    "model": "accounts.user",
+    "pk": 138,
+    "fields": {
+        "password": "pbkdf2_sha256$1000000$cfyaYycw50xo3VjMTyWlLK$5giJUl+5Ogo5YUxiSrSOCN4W08dWnz3WkLjbjH8Sq1U=",
+        "last_login": null,
+        "is_superuser": false,
+        "phone_number": "+251955555558",
+        "first_name": "Test",
+        "last_name": "3",
+        "role": "receptionist",
+        "is_active": true,
+        "is_staff": false,
+        "groups": [],
+        "user_permissions": []
+    }
+},
+{
+    "model": "accounts.user",
+    "pk": 139,
+    "fields": {
+        "password": "pbkdf2_sha256$1000000$GsAzfc8W2fKL2bpxkDAAkR$sp9FtYOhcnXmKZNNTp0MoPPwORPG2R9O5iFG0o8t0go=",
+        "last_login": null,
+        "is_superuser": false,
+        "phone_number": "+251944444444",
+        "first_name": "Test",
+        "last_name": "4",
+        "role": "trainer",
+        "is_active": true,
+        "is_staff": false,
+        "groups": [],
+        "user_permissions": []
+    }
+},
+{
+    "model": "accounts.user",
+    "pk": 140,
+    "fields": {
+        "password": "pbkdf2_sha256$1000000$d9gAib43jxkbDWeBKh6mGD$75oqYk3VpMIMjAc8nblEjJV0iFM9b1fI0kA1tDTWl7c=",
+        "last_login": null,
+        "is_superuser": false,
+        "phone_number": "+251921627870",
+        "first_name": "Ali",
+        "last_name": "Redi",
+        "role": "member",
+        "is_active": true,
+        "is_staff": false,
+        "groups": [],
+        "user_permissions": []
+    }
+},
+{
+    "model": "accounts.user",
+    "pk": 141,
+    "fields": {
+        "password": "pbkdf2_sha256$1000000$eDho1RuKBRBeNcwwr9RTh1$NgG9MqSjWAkAHbvfBuo9q03jkbzedj6DvBMypj2ynUI=",
+        "last_login": null,
+        "is_superuser": false,
+        "phone_number": "+251998989898",
+        "first_name": "Test",
+        "last_name": "4",
+        "role": "trainer",
+        "is_active": true,
+        "is_staff": false,
+        "groups": [],
+        "user_permissions": []
+    }
+},
+{
+    "model": "accounts.user",
+    "pk": 142,
+    "fields": {
+        "password": "pbkdf2_sha256$1000000$fridZGJyMDXVvKwbTvonvJ$KZG45IO6UbwaNEx7+7tOehUcro2gy6x0CgboCnW3jA8=",
+        "last_login": null,
+        "is_superuser": false,
+        "phone_number": "+251978787878",
+        "first_name": "Test",
+        "last_name": "2",
+        "role": "receptionist",
+        "is_active": true,
+        "is_staff": false,
+        "groups": [],
+        "user_permissions": []
+    }
+},
+{
+    "model": "members.memberprofile",
+    "pk": 11,
+    "fields": {
+        "user": 21,
+        "weight": 56.0,
+        "height": 120.0,
+        "gender": "female",
+        "age": 67,
+        "image": "",
+        "image_url": "https://res.cloudinary.com/dv7xwc9il/image/upload/v1762883641/member_images/Hello_21_profile.png",
+        "barcode": "211760555597",
+        "barcode_image": "https://res.cloudinary.com/dv7xwc9il/image/upload/v1760555597/barcodes/Hello_211760555597.png",
+        "package_type": "bronze",
+        "start_date": "2025-10-16T00:00:00Z",
+        "end_date": "2025-11-15T00:00:00Z",
+        "is_active": true
+    }
+},
+{
+    "model": "members.memberprofile",
+    "pk": 12,
+    "fields": {
+        "user": 22,
+        "weight": 56.0,
+        "height": 150.0,
+        "gender": "female",
+        "age": 34,
+        "image": "",
+        "image_url": "https://res.cloudinary.com/dv7xwc9il/image/upload/v1762925257/member_images/sali_22_profile.png",
+        "barcode": "221760555742",
+        "barcode_image": "https://res.cloudinary.com/dv7xwc9il/image/upload/v1760555742/barcodes/sali_221760555742.png",
+        "package_type": "bronze",
+        "start_date": "2025-10-16T00:00:00Z",
+        "end_date": "2025-11-15T00:00:00Z",
+        "is_active": true
+    }
+},
+{
+    "model": "members.memberprofile",
+    "pk": 19,
+    "fields": {
+        "user": 30,
+        "weight": 345.0,
+        "height": 47.0,
+        "gender": "male",
+        "age": 46,
+        "image": "",
+        "image_url": null,
+        "barcode": "301760883181",
+        "barcode_image": "https://res.cloudinary.com/dv7xwc9il/image/upload/v1760883182/barcodes/test_301760883181.png",
+        "package_type": "bronze",
+        "start_date": "2025-10-26T18:24:37.212Z",
+        "end_date": "2025-11-25T18:24:37.212Z",
+        "is_active": true
+    }
+},
+{
+    "model": "members.memberprofile",
+    "pk": 67,
+    "fields": {
+        "user": 93,
+        "weight": 60.0,
+        "height": 75.0,
+        "gender": "male",
+        "age": 32,
+        "image": "",
+        "image_url": null,
+        "barcode": "931763009572",
+        "barcode_image": "https://res.cloudinary.com/dv7xwc9il/image/upload/v1763009573/barcodes/adis_931763009572.png",
+        "package_type": "bronze",
+        "start_date": "2025-11-12T00:00:00Z",
+        "end_date": "2025-12-12T00:00:00Z",
+        "is_active": true
+    }
+},
+{
+    "model": "members.memberprofile",
+    "pk": 68,
+    "fields": {
+        "user": 94,
+        "weight": 70.0,
+        "height": 170.0,
+        "gender": "male",
+        "age": 25,
+        "image": "",
+        "image_url": "https://res.cloudinary.com/dv7xwc9il/image/upload/v1763181060/member_images/seid_94_profile.jpg",
+        "barcode": "941763010637",
+        "barcode_image": "https://res.cloudinary.com/dv7xwc9il/image/upload/v1763010638/barcodes/seid_941763010637.png",
+        "package_type": "bronze",
+        "start_date": "2025-11-12T00:00:00Z",
+        "end_date": "2025-12-12T00:00:00Z",
+        "is_active": true
+    }
+},
+{
+    "model": "members.memberprofile",
+    "pk": 70,
+    "fields": {
+        "user": 96,
+        "weight": 82.0,
+        "height": 183.0,
+        "gender": "male",
+        "age": 23,
+        "image": "",
+        "image_url": "https://res.cloudinary.com/dv7xwc9il/image/upload/v1763215989/member_images/leul_96_profile.jpg",
+        "barcode": "961763030340",
+        "barcode_image": "https://res.cloudinary.com/dv7xwc9il/image/upload/v1763030341/barcodes/lul_961763030340.png",
+        "package_type": "bronze",
+        "start_date": "2025-11-13T00:00:00Z",
+        "end_date": "2025-12-13T00:00:00Z",
+        "is_active": true
+    }
+},
+{
+    "model": "members.memberprofile",
+    "pk": 72,
+    "fields": {
+        "user": 101,
+        "weight": 88.0,
+        "height": 185.0,
+        "gender": "male",
+        "age": 22,
+        "image": "",
+        "image_url": null,
+        "barcode": "1011763046359",
+        "barcode_image": "https://res.cloudinary.com/dv7xwc9il/image/upload/v1763046360/barcodes/abdulbasit_1011763046359.png",
+        "package_type": "bronze",
+        "start_date": "2025-11-13T00:00:00Z",
+        "end_date": "2025-12-13T00:00:00Z",
+        "is_active": true
+    }
+},
+{
+    "model": "members.memberprofile",
+    "pk": 73,
+    "fields": {
+        "user": 102,
+        "weight": 91.0,
+        "height": 188.0,
+        "gender": "male",
+        "age": 23,
+        "image": "",
+        "image_url": null,
+        "barcode": "1021763046620",
+        "barcode_image": "https://res.cloudinary.com/dv7xwc9il/image/upload/v1763046620/barcodes/sued_1021763046620.png",
+        "package_type": "bronze",
+        "start_date": "2025-11-13T00:00:00Z",
+        "end_date": "2025-12-13T00:00:00Z",
+        "is_active": true
+    }
+},
+{
+    "model": "members.memberprofile",
+    "pk": 74,
+    "fields": {
+        "user": 103,
+        "weight": 65.0,
+        "height": 164.0,
+        "gender": "female",
+        "age": 24,
+        "image": "",
+        "image_url": "https://res.cloudinary.com/dv7xwc9il/image/upload/v1763096871/member_images/betelhem_103_profile.jpg",
+        "barcode": "1031763047384",
+        "barcode_image": "https://res.cloudinary.com/dv7xwc9il/image/upload/v1763047384/barcodes/betelhem_1031763047384.png",
+        "package_type": "bronze",
+        "start_date": "2025-11-13T00:00:00Z",
+        "end_date": "2025-12-13T00:00:00Z",
+        "is_active": true
+    }
+},
+{
+    "model": "members.memberprofile",
+    "pk": 75,
+    "fields": {
+        "user": 104,
+        "weight": 80.0,
+        "height": 176.0,
+        "gender": "male",
+        "age": 28,
+        "image": "",
+        "image_url": null,
+        "barcode": "1041763048690",
+        "barcode_image": "https://res.cloudinary.com/dv7xwc9il/image/upload/v1763048690/barcodes/yisak_1041763048690.png",
+        "package_type": "bronze",
+        "start_date": "2025-11-13T00:00:00Z",
+        "end_date": "2025-12-13T00:00:00Z",
+        "is_active": true
+    }
+},
+{
+    "model": "members.memberprofile",
+    "pk": 76,
+    "fields": {
+        "user": 105,
+        "weight": 65.0,
+        "height": 168.0,
+        "gender": "female",
+        "age": 24,
+        "image": "",
+        "image_url": null,
+        "barcode": "1051763049123",
+        "barcode_image": "https://res.cloudinary.com/dv7xwc9il/image/upload/v1763049123/barcodes/eyerus_1051763049123.png",
+        "package_type": "bronze",
+        "start_date": "2025-11-13T00:00:00Z",
+        "end_date": "2025-12-13T00:00:00Z",
+        "is_active": true
+    }
+},
+{
+    "model": "members.memberprofile",
+    "pk": 77,
+    "fields": {
+        "user": 106,
+        "weight": 70.0,
+        "height": 165.0,
+        "gender": "male",
+        "age": 27,
+        "image": "",
+        "image_url": null,
+        "barcode": "1061763051022",
+        "barcode_image": "https://res.cloudinary.com/dv7xwc9il/image/upload/v1763051022/barcodes/ebrahim_1061763051022.png",
+        "package_type": "bronze",
+        "start_date": "2025-11-13T00:00:00Z",
+        "end_date": "2025-12-13T00:00:00Z",
+        "is_active": true
+    }
+},
+{
+    "model": "members.memberprofile",
+    "pk": 78,
+    "fields": {
+        "user": 107,
+        "weight": 66.0,
+        "height": 168.0,
+        "gender": "male",
+        "age": 32,
+        "image": "",
+        "image_url": "https://res.cloudinary.com/dv7xwc9il/image/upload/v1763096804/member_images/alemayehu_107_profile.jpg",
+        "barcode": "1071763053409",
+        "barcode_image": "https://res.cloudinary.com/dv7xwc9il/image/upload/v1763053410/barcodes/alemayehu_1071763053409.png",
+        "package_type": "bronze",
+        "start_date": "2025-11-13T00:00:00Z",
+        "end_date": "2025-12-13T00:00:00Z",
+        "is_active": true
+    }
+},
+{
+    "model": "members.memberprofile",
+    "pk": 79,
+    "fields": {
+        "user": 108,
+        "weight": 75.0,
+        "height": 175.0,
+        "gender": "male",
+        "age": 35,
+        "image": "",
+        "image_url": "https://res.cloudinary.com/dv7xwc9il/image/upload/v1763097940/member_images/Tewodros_108_profile.jpg",
+        "barcode": "1081763058910",
+        "barcode_image": "https://res.cloudinary.com/dv7xwc9il/image/upload/v1763058911/barcodes/Tewodros_1081763058910.png",
+        "package_type": "bronze",
+        "start_date": "2025-11-13T00:00:00Z",
+        "end_date": "2025-12-13T00:00:00Z",
+        "is_active": true
+    }
+},
+{
+    "model": "members.memberprofile",
+    "pk": 80,
+    "fields": {
+        "user": 109,
+        "weight": 64.0,
+        "height": 178.0,
+        "gender": "male",
+        "age": 29,
+        "image": "",
+        "image_url": null,
+        "barcode": "1091763100194",
+        "barcode_image": "https://res.cloudinary.com/dv7xwc9il/image/upload/v1763100194/barcodes/Kaleab_1091763100194.png",
+        "package_type": "bronze",
+        "start_date": "2025-11-13T00:00:00Z",
+        "end_date": "2025-12-13T00:00:00Z",
+        "is_active": true
+    }
+},
+{
+    "model": "members.memberprofile",
+    "pk": 81,
+    "fields": {
+        "user": 110,
+        "weight": 90.0,
+        "height": 182.0,
+        "gender": "male",
+        "age": 37,
+        "image": "",
+        "image_url": null,
+        "barcode": "1101763105690",
+        "barcode_image": "https://res.cloudinary.com/dv7xwc9il/image/upload/v1763105690/barcodes/Sayew_1101763105690.png",
+        "package_type": "bronze",
+        "start_date": "2025-11-13T00:00:00Z",
+        "end_date": "2025-12-13T00:00:00Z",
+        "is_active": true
+    }
+},
+{
+    "model": "members.memberprofile",
+    "pk": 82,
+    "fields": {
+        "user": 111,
+        "weight": 79.0,
+        "height": 169.0,
+        "gender": "male",
+        "age": 36,
+        "image": "",
+        "image_url": null,
+        "barcode": "1111763105914",
+        "barcode_image": "https://res.cloudinary.com/dv7xwc9il/image/upload/v1763105914/barcodes/Wondesen_1111763105914.png",
+        "package_type": "bronze",
+        "start_date": "2025-11-13T00:00:00Z",
+        "end_date": "2025-12-13T00:00:00Z",
+        "is_active": true
+    }
+},
+{
+    "model": "members.memberprofile",
+    "pk": 83,
+    "fields": {
+        "user": 112,
+        "weight": 86.0,
+        "height": 184.0,
+        "gender": "male",
+        "age": 30,
+        "image": "",
+        "image_url": null,
+        "barcode": "1121763107325",
+        "barcode_image": "https://res.cloudinary.com/dv7xwc9il/image/upload/v1763107325/barcodes/Eyob_1121763107325.png",
+        "package_type": "bronze",
+        "start_date": "2025-11-13T00:00:00Z",
+        "end_date": "2025-12-13T00:00:00Z",
+        "is_active": true
+    }
+},
+{
+    "model": "members.memberprofile",
+    "pk": 84,
+    "fields": {
+        "user": 113,
+        "weight": 75.0,
+        "height": 170.0,
+        "gender": "male",
+        "age": 28,
+        "image": "",
+        "image_url": null,
+        "barcode": "1131763127705",
+        "barcode_image": "https://res.cloudinary.com/dv7xwc9il/image/upload/v1763127706/barcodes/Fitsum_1131763127705.png",
+        "package_type": "silver",
+        "start_date": "2025-11-14T00:00:00Z",
+        "end_date": "2026-02-12T00:00:00Z",
+        "is_active": true
+    }
+},
+{
+    "model": "members.memberprofile",
+    "pk": 85,
+    "fields": {
+        "user": 114,
+        "weight": 67.0,
+        "height": 185.0,
+        "gender": "male",
+        "age": 24,
+        "image": "",
+        "image_url": null,
+        "barcode": "1141763128063",
+        "barcode_image": "https://res.cloudinary.com/dv7xwc9il/image/upload/v1763128063/barcodes/Rmedan_1141763128063.png",
+        "package_type": "bronze",
+        "start_date": "2025-11-14T00:00:00Z",
+        "end_date": "2025-12-14T00:00:00Z",
+        "is_active": true
+    }
+},
+{
+    "model": "members.memberprofile",
+    "pk": 86,
+    "fields": {
+        "user": 115,
+        "weight": 67.0,
+        "height": 174.0,
+        "gender": "male",
+        "age": 34,
+        "image": "",
+        "image_url": null,
+        "barcode": "1151763128364",
+        "barcode_image": "https://res.cloudinary.com/dv7xwc9il/image/upload/v1763128364/barcodes/Mengistu_1151763128364.png",
+        "package_type": "bronze",
+        "start_date": "2025-11-14T00:00:00Z",
+        "end_date": "2025-12-14T00:00:00Z",
+        "is_active": true
+    }
+},
+{
+    "model": "members.memberprofile",
+    "pk": 87,
+    "fields": {
+        "user": 116,
+        "weight": 62.0,
+        "height": 166.0,
+        "gender": "male",
+        "age": 27,
+        "image": "",
+        "image_url": null,
+        "barcode": "1161763128863",
+        "barcode_image": "https://res.cloudinary.com/dv7xwc9il/image/upload/v1763128863/barcodes/Dawad_1161763128863.png",
+        "package_type": "bronze",
+        "start_date": "2025-11-14T00:00:00Z",
+        "end_date": "2025-12-14T00:00:00Z",
+        "is_active": true
+    }
+},
+{
+    "model": "members.memberprofile",
+    "pk": 88,
+    "fields": {
+        "user": 117,
+        "weight": 70.0,
+        "height": 178.0,
+        "gender": "male",
+        "age": 25,
+        "image": "",
+        "image_url": null,
+        "barcode": "1171763129085",
+        "barcode_image": "https://res.cloudinary.com/dv7xwc9il/image/upload/v1763129085/barcodes/Henok_1171763129085.png",
+        "package_type": "bronze",
+        "start_date": "2025-11-14T00:00:00Z",
+        "end_date": "2025-12-14T00:00:00Z",
+        "is_active": true
+    }
+},
+{
+    "model": "members.memberprofile",
+    "pk": 89,
+    "fields": {
+        "user": 118,
+        "weight": 88.0,
+        "height": 183.0,
+        "gender": "male",
+        "age": 21,
+        "image": "",
+        "image_url": null,
+        "barcode": "1181763133254",
+        "barcode_image": "https://res.cloudinary.com/dv7xwc9il/image/upload/v1763133254/barcodes/Eyosiyas_1181763133254.png",
+        "package_type": "silver",
+        "start_date": "2025-11-14T00:00:00Z",
+        "end_date": "2026-02-12T00:00:00Z",
+        "is_active": true
+    }
+},
+{
+    "model": "members.memberprofile",
+    "pk": 90,
+    "fields": {
+        "user": 119,
+        "weight": 75.0,
+        "height": 169.0,
+        "gender": "female",
+        "age": 22,
+        "image": "",
+        "image_url": null,
+        "barcode": "1191763137772",
+        "barcode_image": "https://res.cloudinary.com/dv7xwc9il/image/upload/v1763137772/barcodes/Selam_1191763137772.png",
+        "package_type": "bronze",
+        "start_date": "2025-11-14T00:00:00Z",
+        "end_date": "2025-12-14T00:00:00Z",
+        "is_active": true
+    }
+},
+{
+    "model": "members.memberprofile",
+    "pk": 91,
+    "fields": {
+        "user": 120,
+        "weight": 68.0,
+        "height": 190.0,
+        "gender": "male",
+        "age": 20,
+        "image": "",
+        "image_url": null,
+        "barcode": "1201763137909",
+        "barcode_image": "https://res.cloudinary.com/dv7xwc9il/image/upload/v1763137909/barcodes/Firomisa_1201763137909.png",
+        "package_type": "bronze",
+        "start_date": "2025-11-14T00:00:00Z",
+        "end_date": "2025-12-14T00:00:00Z",
+        "is_active": true
+    }
+},
+{
+    "model": "members.memberprofile",
+    "pk": 92,
+    "fields": {
+        "user": 121,
+        "weight": 75.0,
+        "height": 168.0,
+        "gender": "male",
+        "age": 34,
+        "image": "",
+        "image_url": null,
+        "barcode": "1211763138222",
+        "barcode_image": "https://res.cloudinary.com/dv7xwc9il/image/upload/v1763138222/barcodes/Ashenafi_1211763138222.png",
+        "package_type": "bronze",
+        "start_date": "2025-11-14T00:00:00Z",
+        "end_date": "2025-12-14T00:00:00Z",
+        "is_active": true
+    }
+},
+{
+    "model": "members.memberprofile",
+    "pk": 93,
+    "fields": {
+        "user": 122,
+        "weight": 60.0,
+        "height": 172.0,
+        "gender": "male",
+        "age": 23,
+        "image": "",
+        "image_url": null,
+        "barcode": "1221763183388",
+        "barcode_image": "https://res.cloudinary.com/dv7xwc9il/image/upload/v1763183388/barcodes/Mohamed_1221763183388.png",
+        "package_type": "bronze",
+        "start_date": "2025-11-14T00:00:00Z",
+        "end_date": "2025-12-14T00:00:00Z",
+        "is_active": true
+    }
+},
+{
+    "model": "members.memberprofile",
+    "pk": 94,
+    "fields": {
+        "user": 123,
+        "weight": 103.0,
+        "height": 168.0,
+        "gender": "male",
+        "age": 35,
+        "image": "",
+        "image_url": null,
+        "barcode": "1231763186539",
+        "barcode_image": "https://res.cloudinary.com/dv7xwc9il/image/upload/v1763186540/barcodes/Nure_1231763186539.png",
+        "package_type": "bronze",
+        "start_date": "2025-11-14T00:00:00Z",
+        "end_date": "2025-12-14T00:00:00Z",
+        "is_active": true
+    }
+},
+{
+    "model": "members.memberprofile",
+    "pk": 95,
+    "fields": {
+        "user": 124,
+        "weight": 67.0,
+        "height": 170.0,
+        "gender": "male",
+        "age": 28,
+        "image": "",
+        "image_url": null,
+        "barcode": "1241763188935",
+        "barcode_image": "https://res.cloudinary.com/dv7xwc9il/image/upload/v1763188935/barcodes/Wubshet_1241763188935.png",
+        "package_type": "bronze",
+        "start_date": "2025-11-14T00:00:00Z",
+        "end_date": "2025-12-14T00:00:00Z",
+        "is_active": true
+    }
+},
+{
+    "model": "members.memberprofile",
+    "pk": 96,
+    "fields": {
+        "user": 125,
+        "weight": 83.0,
+        "height": 176.0,
+        "gender": "male",
+        "age": 27,
+        "image": "",
+        "image_url": "https://res.cloudinary.com/dv7xwc9il/image/upload/v1763210926/member_images/Bereket_125_profile.jpg",
+        "barcode": "1251763206048",
+        "barcode_image": "https://res.cloudinary.com/dv7xwc9il/image/upload/v1763206049/barcodes/Bereket_1251763206048.png",
+        "package_type": "bronze",
+        "start_date": "2025-11-15T00:00:00Z",
+        "end_date": "2025-12-15T00:00:00Z",
+        "is_active": true
+    }
+},
+{
+    "model": "members.memberprofile",
+    "pk": 97,
+    "fields": {
+        "user": 126,
+        "weight": 86.0,
+        "height": 173.0,
+        "gender": "male",
+        "age": 27,
+        "image": "",
+        "image_url": "https://res.cloudinary.com/dv7xwc9il/image/upload/v1763207395/member_images/Yeabsira_126_profile.jpg",
+        "barcode": "1261763206372",
+        "barcode_image": "https://res.cloudinary.com/dv7xwc9il/image/upload/v1763206372/barcodes/Yeabsira_1261763206372.png",
+        "package_type": "bronze",
+        "start_date": "2025-11-15T00:00:00Z",
+        "end_date": "2025-12-15T00:00:00Z",
+        "is_active": true
+    }
+},
+{
+    "model": "members.memberprofile",
+    "pk": 98,
+    "fields": {
+        "user": 128,
+        "weight": 104.0,
+        "height": 185.0,
+        "gender": "male",
+        "age": 32,
+        "image": "",
+        "image_url": null,
+        "barcode": "1281763212775",
+        "barcode_image": "https://res.cloudinary.com/dv7xwc9il/image/upload/v1763212776/barcodes/Abdurehaman_1281763212775.png",
+        "package_type": "bronze",
+        "start_date": "2025-11-15T00:00:00Z",
+        "end_date": "2025-12-15T00:00:00Z",
+        "is_active": true
+    }
+},
+{
+    "model": "members.memberprofile",
+    "pk": 99,
+    "fields": {
+        "user": 129,
+        "weight": 68.0,
+        "height": 173.0,
+        "gender": "male",
+        "age": 28,
+        "image": "",
+        "image_url": null,
+        "barcode": "1291763212975",
+        "barcode_image": "https://res.cloudinary.com/dv7xwc9il/image/upload/v1763212975/barcodes/Endalkachew_1291763212975.png",
+        "package_type": "bronze",
+        "start_date": "2025-11-15T00:00:00Z",
+        "end_date": "2025-12-15T00:00:00Z",
+        "is_active": true
+    }
+},
+{
+    "model": "members.memberprofile",
+    "pk": 100,
+    "fields": {
+        "user": 130,
+        "weight": 105.0,
+        "height": 185.0,
+        "gender": "male",
+        "age": 32,
+        "image": "",
+        "image_url": null,
+        "barcode": "1301763213319",
+        "barcode_image": "https://res.cloudinary.com/dv7xwc9il/image/upload/v1763213319/barcodes/Fuad_1301763213319.png",
+        "package_type": "bronze",
+        "start_date": "2025-11-15T00:00:00Z",
+        "end_date": "2025-12-15T00:00:00Z",
+        "is_active": true
+    }
+},
+{
+    "model": "members.memberprofile",
+    "pk": 101,
+    "fields": {
+        "user": 140,
+        "weight": 78.0,
+        "height": 177.0,
+        "gender": "male",
+        "age": 27,
+        "image": "",
+        "image_url": null,
+        "barcode": "1401763223417",
+        "barcode_image": "https://res.cloudinary.com/dv7xwc9il/image/upload/v1763223417/barcodes/Ali_1401763223417.png",
+        "package_type": "bronze",
+        "start_date": "2025-11-15T00:00:00Z",
+        "end_date": "2025-12-15T00:00:00Z",
+        "is_active": true
+    }
+},
+{
+    "model": "members.checkin",
+    "pk": 11,
+    "fields": {
+        "member": 19,
+        "timestamp": "2025-10-19T14:33:23.879Z"
+    }
+},
+{
+    "model": "members.checkin",
+    "pk": 12,
+    "fields": {
+        "member": 19,
+        "timestamp": "2025-10-19T14:33:38.547Z"
+    }
+}
+]
