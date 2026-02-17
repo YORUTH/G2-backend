@@ -4,6 +4,7 @@ from .models import MemberProfile, CheckIn,PACKAGE_DURATION
 from django.utils import timezone
 from django.contrib.auth import get_user_model
 from datetime import timedelta
+from .models import PendingMember
 User = get_user_model()
 PACKAGE_CHOICES = [(key, key.capitalize()) for key in PACKAGE_DURATION.keys()]
 
@@ -209,3 +210,147 @@ class MemberImageAttachSerializer(serializers.ModelSerializer):
         user.save()
         instance.save()
         return instance
+from django.core.exceptions import ValidationError as DjangoValidationError
+from django.db import transaction
+
+from .models import MemberProfile, Locker, assign_locker
+
+
+class LockerAssignSerializer(serializers.Serializer):
+    member_id = serializers.IntegerField()
+    locker_number = serializers.IntegerField(min_value=1)
+
+    def validate(self, data):
+        try:
+            member = MemberProfile.objects.get(id=data["member_id"])
+        except MemberProfile.DoesNotExist:
+            raise serializers.ValidationError("Invalid member ID.")
+
+        data["member"] = member
+        return data
+
+    def create(self, validated_data):
+        member = validated_data["member"]
+        locker_number = validated_data["locker_number"]
+
+        try:
+            with transaction.atomic():
+                # Create locker if it does not exist
+                locker, _ = Locker.objects.select_for_update().get_or_create(
+                    locker_number=locker_number,
+                    defaults={"status": "available"},
+                )
+
+                locker.refresh_status()
+
+                # ✅ CALL FUNCTION (not class)
+                assignment = assign_locker(
+                    member=member,
+                    locker_number=locker.locker_number,
+                )
+
+                return assignment
+
+        except DjangoValidationError as e:
+            raise serializers.ValidationError(e.message)
+
+
+class LockerListSerializer(serializers.ModelSerializer):
+    # Nested info: who has it assigned
+    member_id = serializers.SerializerMethodField()
+    member_name = serializers.SerializerMethodField()
+    assignment_status = serializers.SerializerMethodField()
+    expires_at = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Locker
+        fields = [
+            "locker_number",
+            "status",
+            "cooldown_until",
+            "member_id",
+            "member_name",
+            "assignment_status",
+            "expires_at",
+        ]
+
+    def get_member_id(self, obj):
+        assignment = getattr(obj, "assignments", None)
+        # pick active assignment if exists
+        active_assignment = obj.assignments.filter(status="active").first()
+        return active_assignment.member.id if active_assignment else None
+
+    def get_member_name(self, obj):
+        active_assignment = obj.assignments.filter(status="active").first()
+        return active_assignment.member.user.first_name if active_assignment else None
+
+    def get_assignment_status(self, obj):
+        active_assignment = obj.assignments.filter(status="active").first()
+        return active_assignment.status if active_assignment else None
+
+    def get_expires_at(self, obj):
+        active_assignment = obj.assignments.filter(status="active").first()
+        return active_assignment.expires_at if active_assignment else None
+
+
+from django.contrib.auth.hashers import make_password
+
+class NewPendingMemberSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(write_only=True)
+
+    class Meta:
+        model = PendingMember
+        fields = [
+            "first_name",
+            "last_name",
+            "phone_number",
+            "weight",
+            "height",
+            "gender",
+            "age",
+            "package_type",
+            "password",
+        ]
+
+    def create(self, validated_data):
+        validated_data["password"] = make_password(
+            validated_data["password"]
+        )
+        validated_data["pending_type"] = "new"
+        return PendingMember.objects.create(**validated_data)
+class RenewalPendingSerializer(serializers.Serializer):
+    member_id = serializers.IntegerField()
+    package_type = serializers.ChoiceField(choices=PACKAGE_CHOICES)
+
+    def validate_member_id(self, value):
+        try:
+            member = MemberProfile.objects.get(pk=value)
+        except MemberProfile.DoesNotExist:
+            raise serializers.ValidationError("Member not found.")
+
+        if member.user.is_active:
+            raise serializers.ValidationError(
+                "Member is still active and cannot be renewed."
+            )
+        return value
+
+class PendingMemberSerializer(serializers.ModelSerializer):
+    recorded_by = serializers.CharField(
+        source="recorded_by.username",
+        read_only=True
+    )
+
+    class Meta:
+        model = PendingMember
+        fields = [
+            "id",
+            "first_name",
+            "last_name",
+            "phone_number",
+            "pending_type",
+            "package_type",
+            "status",
+            "recorded_by",
+            "recorded_at",
+        ]
+        read_only_fields = fields

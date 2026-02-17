@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     "members",
     "rest_framework",
     "staff",
+    "finance",
     'corsheaders',  
     "cloudinary",
     "cloudinary_storage",

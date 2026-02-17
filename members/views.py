@@ -1,4 +1,4 @@
-from rest_framework import generics
+from rest_framework import generics,permissions
 from .models import MemberProfile
 from .serializers import MemberCreateSerializer, TrainerUpdateSerializer, MemberUpdateSerializer
 from accounts.permissions import IsReceptionist, IsTrainer, IsMember,CanViewMemberDetail ,CanViewMembersList
@@ -295,7 +295,6 @@ class ReceptionistUpcomingExpirationsView(generics.GenericAPIView):
                 "end_date": member.end_date,
                 "days_left": days_left,
                 "phone": getattr(member, "phone", None), 
-                "email": getattr(member.user, "email", None), 
             })
 
         return Response({
@@ -308,3 +307,140 @@ class MemberAttachImageView(generics.UpdateAPIView):
     permission_classes = [IsReceptionist]
     http_method_names = ["put"]
     lookup_field = "pk"
+from .serializers import LockerAssignSerializer
+
+
+class AssignLockerAPIView(APIView):
+    permission_classes = [IsReceptionist]
+    def post(self, request):
+        serializer = LockerAssignSerializer(data=request.data)
+
+        if serializer.is_valid():
+            assignment = serializer.save()
+
+            return Response(
+                {
+                    "message": "Locker assigned successfully.",
+                    "locker_number": assignment.locker.locker_number,
+                    "member_id": assignment.member.id,
+                    "expires_at": assignment.expires_at,
+                },
+                status=status.HTTP_201_CREATED,
+            )
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+from .models import Locker
+from .serializers import LockerListSerializer
+
+class LockerListAPIView(APIView):
+    permission_classes = [IsReceptionist]
+    def get(self, request):
+        lockers = Locker.objects.all().order_by("locker_number")
+
+        # Auto-refresh every locker for sharp time
+        for locker in lockers:
+            locker.refresh_status()
+
+        serializer = LockerListSerializer(lockers, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+from .models import PendingMember
+from .serializers import NewPendingMemberSerializer,RenewalPendingSerializer,PendingMemberSerializer
+from django.db import transaction
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from django.shortcuts import get_object_or_404
+
+class NewPendingMemberCreateView(generics.CreateAPIView):
+    queryset = PendingMember.objects.all()
+    serializer_class = NewPendingMemberSerializer
+    permission_classes = [IsReceptionist]
+
+    def perform_create(self, serializer):
+        serializer.save(recorded_by=self.request.user)
+
+class RenewalPendingMemberCreateView(APIView):
+    permission_classes = [IsReceptionist]
+
+    def post(self, request):
+        serializer = RenewalPendingSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        member = MemberProfile.objects.get(
+            pk=serializer.validated_data["member_id"]
+        )
+
+        pending = PendingMember.objects.create(
+            first_name=member.user.first_name,
+            last_name=member.user.last_name,
+            phone_number=member.user.phone_number,
+            weight=member.weight,
+            height=member.height,
+            gender=member.gender,
+            age=member.age,
+            package_type=serializer.validated_data["package_type"],
+            password=member.user.password,  # reuse existing hash
+            pending_type="renewal",
+            recorded_by=request.user,
+        )
+
+        return Response(
+            {
+                "message": "Renewal pending recorded",
+                "pending_id": pending.id,
+            },
+            status=status.HTTP_201_CREATED
+        )
+class ActivatePendingMemberView(APIView):
+    permission_classes = [IsReceptionist]
+
+    @transaction.atomic
+    def post(self, request, pk):
+        pending = get_object_or_404(
+            PendingMember,
+            pk=pk,
+            status="pending"
+        )
+
+        # Create MemberProfile from pending
+        member_data = {
+            "first_name": pending.first_name,
+            "last_name": pending.last_name,
+            "phone_number": pending.phone_number,
+            "password": pending.password,  # already hashed
+            "weight": pending.weight,
+            "height": pending.height,
+            "gender": pending.gender,
+            "age": pending.age,
+            "package_type": pending.package_type,
+            "start_date": timezone.now(),
+        }
+
+        serializer = MemberCreateSerializer(data=member_data)
+        serializer.is_valid(raise_exception=True)
+        profile = serializer.save()
+
+        # Optional audit: store activated_at and profile temporarily before delete
+        pending.activated_at = timezone.now()
+        pending.activated_profile = profile
+        pending.status = "activated"
+
+        # Now safely remove only THIS pending member
+        pending.delete()
+
+        return Response(
+            {
+                "message": "Membership activated",
+                "member_profile_id": profile.id,
+            },
+            status=status.HTTP_201_CREATED
+        )
+
+class PendingMemberListView(generics.ListAPIView):
+    serializer_class = PendingMemberSerializer
+    permission_classes = [IsReceptionist]
+
+    def get_queryset(self):
+        return PendingMember.objects.filter(status="pending").order_by("-recorded_at")

@@ -11,8 +11,16 @@ from .views import (
     MemberAttendanceCalendarView,
     ReceptionistUpcomingExpirationsView,
     MemberAttachImageView,
-    DietplanListView
+    DietplanListView,
+    AssignLockerAPIView,
+    LockerListAPIView,
+    NewPendingMemberCreateView,
+    RenewalPendingMemberCreateView,
+    PendingMemberListView,
+    ActivatePendingMemberView,
 )
+
+
 
 urlpatterns = [
     path("create/", MemberCreateView.as_view(), name="member-create"),
@@ -26,5 +34,13 @@ urlpatterns = [
     path("me/callander/",MemberAttendanceCalendarView.as_view(), name="member-callander" ),
     path("<int:pk>/attach-image/", MemberAttachImageView.as_view(), name="member-attach-image"),
     path("upcoming-expirations/", ReceptionistUpcomingExpirationsView.as_view(), name="upcoming-expirations"),
-    path("dietplan/", DietplanListView.as_view(), name = "DietplanListView")
+    path("dietplan/", DietplanListView.as_view(), name = "DietplanListView"),
+    path("lockers/assign/", AssignLockerAPIView.as_view()),
+    path("lockers/list/", LockerListAPIView.as_view(), name="locker-list"),
+    path("pending/new/",NewPendingMemberCreateView.as_view(),name="pending-new-create"),
+    path("pending/renewal/",RenewalPendingMemberCreateView.as_view(),name="pending-renewal-create",),
+    path("pending/",PendingMemberListView.as_view(),name="pending-list"),
+    path("pending/<int:pk>/activate/",ActivatePendingMemberView.as_view(),name="pending-activate"),
+
 ]
+
