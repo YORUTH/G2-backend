@@ -254,11 +254,11 @@ class LockerAssignSerializer(serializers.Serializer):
         except DjangoValidationError as e:
             raise serializers.ValidationError(e.message)
 
-
 class LockerListSerializer(serializers.ModelSerializer):
     # Nested info: who has it assigned
     member_id = serializers.SerializerMethodField()
     member_name = serializers.SerializerMethodField()
+    member_phone = serializers.SerializerMethodField()
     assignment_status = serializers.SerializerMethodField()
     expires_at = serializers.SerializerMethodField()
 
@@ -270,26 +270,39 @@ class LockerListSerializer(serializers.ModelSerializer):
             "cooldown_until",
             "member_id",
             "member_name",
+            "member_phone",
             "assignment_status",
             "expires_at",
         ]
 
+    def get_active_assignment(self, obj):
+        """Helper to avoid repeated queries."""
+        return obj.assignments.filter(status="active").first()
+
     def get_member_id(self, obj):
-        assignment = getattr(obj, "assignments", None)
-        # pick active assignment if exists
-        active_assignment = obj.assignments.filter(status="active").first()
+        active_assignment = self.get_active_assignment(obj)
         return active_assignment.member.id if active_assignment else None
 
     def get_member_name(self, obj):
-        active_assignment = obj.assignments.filter(status="active").first()
-        return active_assignment.member.user.first_name if active_assignment else None
+        active_assignment = self.get_active_assignment(obj)
+        if active_assignment:
+            user = active_assignment.member.user
+            return f"{user.first_name} {user.last_name}"
+        return None
+
+    def get_member_phone(self, obj):
+        active_assignment = self.get_active_assignment(obj)
+        if active_assignment:
+            return str(active_assignment.member.user.phone_number)
+        return None
+
 
     def get_assignment_status(self, obj):
-        active_assignment = obj.assignments.filter(status="active").first()
+        active_assignment = self.get_active_assignment(obj)
         return active_assignment.status if active_assignment else None
 
     def get_expires_at(self, obj):
-        active_assignment = obj.assignments.filter(status="active").first()
+        active_assignment = self.get_active_assignment(obj)
         return active_assignment.expires_at if active_assignment else None
 
 
