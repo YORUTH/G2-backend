@@ -1,10 +1,11 @@
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
-from .models import MemberProfile, CheckIn,PACKAGE_DURATION
+from .models import MemberProfile, CheckIn, PACKAGE_DURATION
 from django.utils import timezone
 from django.contrib.auth import get_user_model
 from datetime import timedelta
 from .models import PendingMember
+
 User = get_user_model()
 PACKAGE_CHOICES = [(key, key.capitalize()) for key in PACKAGE_DURATION.keys()]
 
@@ -44,13 +45,14 @@ class MemberCreateSerializer(serializers.ModelSerializer):
 
         package_type = validated_data.get("package_type")
         start_date = validated_data.get("start_date") or timezone.now()
-        validated_data["start_date"] = start_date  
+        validated_data["start_date"] = start_date
         if package_type in PACKAGE_DURATION:
             months = PACKAGE_DURATION[package_type]
-            validated_data["end_date"] = start_date + timedelta(days=30*months)
+            validated_data["end_date"] = start_date + timedelta(days=30 * months)
 
         profile = MemberProfile.objects.create(user=user, **validated_data)
         return profile
+
 
 class TrainerUpdateSerializer(serializers.ModelSerializer):
     first_name = serializers.CharField(source="user.first_name", read_only=True)
@@ -68,20 +70,15 @@ class TrainerUpdateSerializer(serializers.ModelSerializer):
             "height",
         ]
 
-class MemberUpdateSerializer(serializers.ModelSerializer):
-    package_type = serializers.ChoiceField(choices=[(k, k.capitalize()) for k in PACKAGE_DURATION.keys()])
+
+# Read-only serializer used by list, detail, check-in, and profile views.
+# MemberUpdateSerializer has been removed — use the pending/instant renewal
+# endpoints for membership changes.
+class MemberReadSerializer(serializers.ModelSerializer):
     phone_number = serializers.CharField(source="user.phone_number", read_only=True)
     first_name = serializers.CharField(source="user.first_name", read_only=True)
     last_name = serializers.CharField(source="user.last_name", read_only=True)
-    is_active = serializers.BooleanField(source="user.is_active")  # receptionist can update
-    weight = serializers.FloatField(read_only=True)
-    height = serializers.FloatField(read_only=True)
-    gender = serializers.CharField(read_only=True)
-    age = serializers.IntegerField(read_only=True)
-    barcode = serializers.CharField(read_only=True)
-    barcode_image = serializers.URLField(read_only=True)
-    start_date = serializers.DateTimeField(read_only=True)
-    end_date = serializers.DateTimeField(read_only=True)
+    is_active = serializers.BooleanField(source="user.is_active", read_only=True)
     left_days = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
@@ -104,57 +101,36 @@ class MemberUpdateSerializer(serializers.ModelSerializer):
             "is_active",
             "left_days",
         ]
+        read_only_fields = fields
 
     def get_left_days(self, obj):
-        from django.utils import timezone
         if obj.end_date:
             delta = obj.end_date.date() - timezone.now().date()
             return max(delta.days, 0)
         return 0
 
-    def get_is_active(self, obj):
-        # Just return the current user status
-        return obj.user.is_active
-
-
-    def update(self, instance, validated_data):
-        user_data = validated_data.get("user", {})
-        new_active = user_data.get("is_active", instance.user.is_active)
-        new_package = validated_data.get("package_type", instance.package_type)
-        left_days = self.get_left_days(instance)
-        if instance.user.is_active and left_days > 0 and new_active:
-            raise ValidationError({
-                "detail": "Cannot update active membership before it expires."
-            })
-        if not instance.user.is_active or left_days <= 0:
-            if new_active:
-                now = timezone.now()
-                instance.start_date = now
-                months = PACKAGE_DURATION.get(new_package, 1)
-                instance.end_date = now + timedelta(days=30*months)
-                instance.package_type = new_package
-                instance.user.is_active = True
-                instance.user.save(update_fields=["is_active"])
-        instance.save(update_fields=["start_date", "end_date", "package_type"])
-        return instance
 
 class CheckInSerializer(serializers.ModelSerializer):
-    member = MemberUpdateSerializer(read_only=True)
+    member = MemberReadSerializer(read_only=True)
 
     class Meta:
         model = CheckIn
         fields = ["id", "member", "timestamp"]
 
+
 class RecentCheckInSerializer(serializers.ModelSerializer):
     member_name = serializers.CharField(source="member.user.first_name", read_only=True)
     image_url = serializers.SerializerMethodField()
+
     class Meta:
         model = CheckIn
-        fields = ["id", "member_name","image_url","timestamp"]
+        fields = ["id", "member_name", "image_url", "timestamp"]
+
     def get_image_url(self, obj):
         if hasattr(obj.member, "image_url") and obj.member.image_url:
             return obj.member.image_url
         return None
+
 
 class MemberImageAttachSerializer(serializers.ModelSerializer):
     first_name = serializers.CharField(required=False)
@@ -182,7 +158,6 @@ class MemberImageAttachSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         from cloudinary.uploader import upload
 
-        # Handle image upload
         image = validated_data.pop("image", None)
         if image:
             upload_result = upload(
@@ -193,12 +168,10 @@ class MemberImageAttachSerializer(serializers.ModelSerializer):
             )
             instance.image_url = upload_result["secure_url"]
 
-        # Update MemberProfile fields
         for field in ["age", "weight", "height"]:
             if field in validated_data:
                 setattr(instance, field, validated_data[field])
 
-        # Update User fields
         user = instance.user
         if "first_name" in validated_data:
             user.first_name = validated_data["first_name"]
@@ -210,9 +183,10 @@ class MemberImageAttachSerializer(serializers.ModelSerializer):
         user.save()
         instance.save()
         return instance
+
+
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
-
 from .models import MemberProfile, Locker, assign_locker
 
 
@@ -225,7 +199,6 @@ class LockerAssignSerializer(serializers.Serializer):
             member = MemberProfile.objects.get(id=data["member_id"])
         except MemberProfile.DoesNotExist:
             raise serializers.ValidationError("Invalid member ID.")
-
         data["member"] = member
         return data
 
@@ -235,32 +208,29 @@ class LockerAssignSerializer(serializers.Serializer):
 
         try:
             with transaction.atomic():
-                # Create locker if it does not exist
                 locker, _ = Locker.objects.select_for_update().get_or_create(
                     locker_number=locker_number,
                     defaults={"status": "available"},
                 )
-
                 locker.refresh_status()
-
-                # ✅ CALL FUNCTION (not class)
                 assignment = assign_locker(
                     member=member,
                     locker_number=locker.locker_number,
                 )
-
                 return assignment
-
         except DjangoValidationError as e:
             raise serializers.ValidationError(e.message)
 
+
 class LockerListSerializer(serializers.ModelSerializer):
-    # Nested info: who has it assigned
     member_id = serializers.SerializerMethodField()
     member_name = serializers.SerializerMethodField()
-    member_phone = serializers.SerializerMethodField()
     assignment_status = serializers.SerializerMethodField()
     expires_at = serializers.SerializerMethodField()
+    # FIX (BUG 3): was IntegerField(read_only=True) which always returned null
+    # because Locker has no days_left attribute and get_queryset() was never
+    # called. Now computed directly from the active assignment.
+    days_left = serializers.SerializerMethodField()
 
     class Meta:
         model = Locker
@@ -270,43 +240,40 @@ class LockerListSerializer(serializers.ModelSerializer):
             "cooldown_until",
             "member_id",
             "member_name",
-            "member_phone",
             "assignment_status",
             "expires_at",
+            "days_left",
         ]
 
-    def get_active_assignment(self, obj):
-        """Helper to avoid repeated queries."""
+    def _active_assignment(self, obj):
         return obj.assignments.filter(status="active").first()
 
     def get_member_id(self, obj):
-        active_assignment = self.get_active_assignment(obj)
-        return active_assignment.member.id if active_assignment else None
+        a = self._active_assignment(obj)
+        return a.member.id if a else None
 
     def get_member_name(self, obj):
-        active_assignment = self.get_active_assignment(obj)
-        if active_assignment:
-            user = active_assignment.member.user
-            return f"{user.first_name} {user.last_name}"
-        return None
-
-    def get_member_phone(self, obj):
-        active_assignment = self.get_active_assignment(obj)
-        if active_assignment:
-            return str(active_assignment.member.user.phone_number)
-        return None
-
+        a = self._active_assignment(obj)
+        return a.member.user.first_name if a else None
 
     def get_assignment_status(self, obj):
-        active_assignment = self.get_active_assignment(obj)
-        return active_assignment.status if active_assignment else None
+        a = self._active_assignment(obj)
+        return a.status if a else None
 
     def get_expires_at(self, obj):
-        active_assignment = self.get_active_assignment(obj)
-        return active_assignment.expires_at if active_assignment else None
+        a = self._active_assignment(obj)
+        return a.expires_at if a else None
+
+    def get_days_left(self, obj):
+        a = self._active_assignment(obj)
+        if a:
+            delta = a.expires_at.date() - timezone.now().date()
+            return max(delta.days, 0)
+        return None
 
 
 from django.contrib.auth.hashers import make_password
+
 
 class NewPendingMemberSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
@@ -326,11 +293,12 @@ class NewPendingMemberSerializer(serializers.ModelSerializer):
         ]
 
     def create(self, validated_data):
-        validated_data["password"] = make_password(
-            validated_data["password"]
-        )
+        validated_data["password"] = make_password(validated_data["password"])
         validated_data["pending_type"] = "new"
+        validated_data["activation_mode"] = "delayed"
         return PendingMember.objects.create(**validated_data)
+
+
 class RenewalPendingSerializer(serializers.Serializer):
     member_id = serializers.IntegerField()
     package_type = serializers.ChoiceField(choices=PACKAGE_CHOICES)
@@ -341,11 +309,17 @@ class RenewalPendingSerializer(serializers.Serializer):
         except MemberProfile.DoesNotExist:
             raise serializers.ValidationError("Member not found.")
 
-        if member.user.is_active:
+        if PendingMember.objects.filter(
+            phone_number=member.user.phone_number,
+            pending_type="renewal",
+            status="pending"
+        ).exists():
             raise serializers.ValidationError(
-                "Member is still active and cannot be renewed."
+                "A pending renewal already exists for this member."
             )
+
         return value
+
 
 class PendingMemberSerializer(serializers.ModelSerializer):
     recorded_by = serializers.CharField(
@@ -362,6 +336,7 @@ class PendingMemberSerializer(serializers.ModelSerializer):
             "phone_number",
             "pending_type",
             "package_type",
+            "activation_mode",
             "status",
             "recorded_by",
             "recorded_at",

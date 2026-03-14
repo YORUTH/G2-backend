@@ -1,7 +1,8 @@
-from rest_framework import generics,permissions
-from .models import MemberProfile
-from .serializers import MemberCreateSerializer, TrainerUpdateSerializer, MemberUpdateSerializer
-from accounts.permissions import IsReceptionist, IsTrainer, IsMember,CanViewMemberDetail ,CanViewMembersList
+from rest_framework import generics, permissions
+from rest_framework.permissions import AllowAny
+from .models import PACKAGE_DURATION, MemberProfile
+from .serializers import MemberCreateSerializer, TrainerUpdateSerializer, MemberReadSerializer
+from accounts.permissions import IsReceptionist, IsTrainer, IsMember, CanViewMemberDetail, CanViewMembersList
 from rest_framework.response import Response
 from rest_framework import status
 from django.db.models import F, ExpressionWrapper, fields, Q
@@ -19,67 +20,73 @@ from datetime import timedelta
 from .filters import MemberProfileFilter
 from rest_framework.pagination import PageNumberPagination
 from datetime import datetime
-from calendar import monthrange
 from .serializers import MemberImageAttachSerializer
-from django.utils import timezone
 from django.contrib.auth import get_user_model
 
 User = get_user_model()
 
 
-today = timezone.now().date()
 class MemberListPagination(PageNumberPagination):
-    page_size = 20             
-    page_size_query_param = "page_size"  
-    max_page_size = 30
-
-class CheckInPagination(PageNumberPagination):
-    page_size = 20          
+    page_size = 20
     page_size_query_param = "page_size"
     max_page_size = 30
 
+
+class CheckInPagination(PageNumberPagination):
+    page_size = 20
+    page_size_query_param = "page_size"
+    max_page_size = 30
+
+
 from staff.models import TrainerDietplan
 from staff.serializers import TrainerDietplanSerializer
+
 
 class DietplanListView(generics.ListAPIView):
     queryset = TrainerDietplan.objects.all()
     serializer_class = TrainerDietplanSerializer
 
+
 class TrainerUpdateMemberView(generics.RetrieveUpdateAPIView):
     queryset = MemberProfile.objects.all()
     serializer_class = TrainerUpdateSerializer
     permission_classes = [IsTrainer]
-    http_method_names = ["get","patch"]
-    
+    http_method_names = ["get", "patch"]
+
+
 class MemberCreateView(generics.CreateAPIView):
     queryset = MemberProfile.objects.all()
     serializer_class = MemberCreateSerializer
     permission_classes = [IsReceptionist]
     http_method_names = ["post"]
+
     def get(self, request, *args, **kwargs):
-        return Response({"detail": "Use POST to create members"}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
-    
+        return Response(
+            {"detail": "Use POST to create members"},
+            status=status.HTTP_405_METHOD_NOT_ALLOWED,
+        )
+
 
 class ListMembersView(generics.ListAPIView):
-    serializer_class = MemberUpdateSerializer
+    serializer_class = MemberReadSerializer
     permission_classes = [CanViewMembersList]
     filter_backends = [DjangoFilterBackend, OrderingFilter]
     http_method_names = ["get"]
-    filterset_class = MemberProfileFilter  
-    filterset_fields = ["phone_number", "first_name", "last_name", "barcode", "package_type", "start_date", "end_date", "left_days"]
+    filterset_class = MemberProfileFilter
+    filterset_fields = ["phone_number", "first_name", "last_name", "barcode", "package_type", "start_date", "end_date"]
     ordering_fields = ["start_date", "end_date", "left_days"]
     ordering = ["-start_date"]
     pagination_class = MemberListPagination
-    
+
     def get_queryset(self):
         now = timezone.now()
-        
+
         User.objects.filter(
             profile__end_date__lt=now,
             is_active=True
         ).update(is_active=False)
-        
-        queryset = MemberProfile.objects.all().order_by("id")
+
+        queryset = MemberProfile.objects.all()
 
         search_term = self.request.query_params.get("search", "").strip()
         if search_term:
@@ -94,9 +101,7 @@ class ListMembersView(generics.ListAPIView):
 
         return queryset
 
-
     def apply_fuzzy_search(self, queryset, term):
-        """Fuzzy search: use trigram similarity on Postgres; fallback to icontains elsewhere."""
         if not term:
             return queryset
 
@@ -108,7 +113,6 @@ class ListMembersView(generics.ListAPIView):
 
                 if has_trgm:
                     from django.contrib.postgres.search import TrigramSimilarity
-
                     queryset = queryset.annotate(
                         similarity=Greatest(
                             TrigramSimilarity("user__first_name", term),
@@ -119,10 +123,8 @@ class ListMembersView(generics.ListAPIView):
                     ).filter(similarity__gt=0.2).order_by("-similarity")
                     return queryset
             except ProgrammingError:
-                # Extension not available or not installed; fall back
                 pass
             except Exception:
-                # Any other issue: fall back to icontains
                 pass
 
         return queryset.filter(
@@ -131,14 +133,22 @@ class ListMembersView(generics.ListAPIView):
             | Q(user__phone_number__icontains=term)
             | Q(barcode__icontains=term)
         )
+
+
 class MyProfileView(generics.RetrieveAPIView):
-    serializer_class = MemberUpdateSerializer
+    serializer_class = MemberReadSerializer
     permission_classes = [CanViewMemberDetail]
     http_method_names = ["get"]
+
     def get_object(self):
         return self.request.user.profile
 
+
 class BarcodeCheckInView(APIView):
+    # FIX: no permission class was set, so global IsAuthenticated blocked
+    # scanner requests (401). Barcode check-in is a public kiosk endpoint.
+    permission_classes = [AllowAny]
+
     def post(self, request, barcode_number):
         try:
             member = MemberProfile.objects.get(barcode=barcode_number)
@@ -170,7 +180,6 @@ class BarcodeCheckInView(APIView):
         }, status=200)
 
 
-
 class RecentCheckInsView(generics.ListAPIView):
     serializer_class = RecentCheckInSerializer
     pagination_class = CheckInPagination
@@ -178,16 +187,15 @@ class RecentCheckInsView(generics.ListAPIView):
 
     def get_queryset(self):
         now = timezone.now()
-        range_param = self.request.query_params.get("range", "day") 
-        order_param = self.request.query_params.get("order", "desc")  
+        range_param = self.request.query_params.get("range", "day")
+        order_param = self.request.query_params.get("order", "desc")
+
         if range_param == "month":
             time_threshold = now - timedelta(days=30)
-        elif range_param == "day":
-            time_threshold = now - timedelta(hours=24)
         else:
             time_threshold = now - timedelta(hours=24)
-        order_by = "timestamp" if order_param == "asc" else "-timestamp"
 
+        order_by = "timestamp" if order_param == "asc" else "-timestamp"
         return CheckIn.objects.filter(timestamp__gte=time_threshold).order_by(order_by)
 
     def list(self, request, *args, **kwargs):
@@ -203,29 +211,27 @@ class RecentCheckInsView(generics.ListAPIView):
             "inactive_members": inactive_count,
         })
 
-class ReceptionistUpdateMemberView(generics.RetrieveUpdateAPIView):
-    queryset = MemberProfile.objects.all()
-    serializer_class = MemberUpdateSerializer
-    permission_classes = [IsReceptionist]  
 
 class RecentRegistrationsView(generics.ListAPIView):
-    serializer_class = MemberUpdateSerializer
+    serializer_class = MemberReadSerializer
     pagination_class = CheckInPagination
     http_method_names = ["get"]
 
     def get_queryset(self):
         now = timezone.now()
-        range_param = self.request.query_params.get("range", "day") 
+        range_param = self.request.query_params.get("range", "day")
         order_param = self.request.query_params.get("order", "desc")
+
         if range_param == "month":
             time_threshold = now - timedelta(days=30)
         elif range_param == "week":
             time_threshold = now - timedelta(7)
         else:
             time_threshold = now - timedelta(hours=24)
-        order_by = "start_date" if order_param == "asc" else "-start_date"
 
+        order_by = "start_date" if order_param == "asc" else "-start_date"
         return MemberProfile.objects.filter(start_date__gte=time_threshold).order_by(order_by)
+
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
         data = [
@@ -233,12 +239,12 @@ class RecentRegistrationsView(generics.ListAPIView):
                 "firstname": member.user.first_name,
                 "barcode": member.barcode,
                 "package_type": member.package_type,
-                "is_active": member.user.is_active,  # already correct
+                "is_active": member.user.is_active,
             }
             for member in queryset
         ]
-
         return Response(data)
+
 
 class MemberAttendanceCalendarView(generics.GenericAPIView):
     permission_classes = [IsMember]
@@ -252,6 +258,7 @@ class MemberAttendanceCalendarView(generics.GenericAPIView):
         start_date = datetime(year, month, 1)
         last_day = monthrange(year, month)[1]
         end_date = datetime(year, month, last_day, 23, 59, 59)
+
         checkins = CheckIn.objects.filter(
             member=member_profile,
             timestamp__range=(start_date, end_date)
@@ -260,21 +267,21 @@ class MemberAttendanceCalendarView(generics.GenericAPIView):
         days_status = []
         for day in range(1, last_day + 1):
             day_date = datetime(year, month, day)
-            attended = day in attended_days
             days_status.append({
                 "day": day,
                 "date": day_date.strftime("%Y-%m-%d"),
-                "attended": attended
+                "attended": day in attended_days,
             })
-        data = {
+
+        return Response({
             "member": f"{user.first_name} {user.last_name}",
             "month": start_date.strftime("%B"),
             "year": year,
             "total_attended_days": len(attended_days),
-            "days": days_status
-        }
+            "days": days_status,
+        })
 
-        return Response(data)
+
 class ReceptionistUpcomingExpirationsView(generics.GenericAPIView):
     permission_classes = [IsReceptionist]
     http_method_names = ["get"]
@@ -294,30 +301,37 @@ class ReceptionistUpcomingExpirationsView(generics.GenericAPIView):
                 "name": f"{member.user.first_name} {member.user.last_name}",
                 "end_date": member.end_date,
                 "days_left": days_left,
-                "phone": getattr(member, "phone", None), 
+                # FIX: member.user.phone_number is a PhoneNumber object which
+                # is not JSON serializable — cast to str explicitly.
+                "phone": str(member.user.phone_number),
             })
 
         return Response({
             "count": len(members_data),
-            "members_expiring_soon": members_data
+            "members_expiring_soon": members_data,
         })
+
+
 class MemberAttachImageView(generics.UpdateAPIView):
     queryset = MemberProfile.objects.all()
     serializer_class = MemberImageAttachSerializer
     permission_classes = [IsReceptionist]
     http_method_names = ["put"]
     lookup_field = "pk"
+
+
 from .serializers import LockerAssignSerializer
+from .models import Locker
+from .serializers import LockerListSerializer
 
 
 class AssignLockerAPIView(APIView):
     permission_classes = [IsReceptionist]
+
     def post(self, request):
         serializer = LockerAssignSerializer(data=request.data)
-
         if serializer.is_valid():
             assignment = serializer.save()
-
             return Response(
                 {
                     "message": "Locker assigned successfully.",
@@ -327,31 +341,25 @@ class AssignLockerAPIView(APIView):
                 },
                 status=status.HTTP_201_CREATED,
             )
-
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-from .models import Locker
-from .serializers import LockerListSerializer
-
 class LockerListAPIView(APIView):
     permission_classes = [IsReceptionist]
+
     def get(self, request):
         lockers = Locker.objects.all().order_by("locker_number")
-
-        # Auto-refresh every locker for sharp time
         for locker in lockers:
             locker.refresh_status()
-
         serializer = LockerListSerializer(lockers, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
 from .models import PendingMember
-from .serializers import NewPendingMemberSerializer,RenewalPendingSerializer,PendingMemberSerializer
+from .serializers import NewPendingMemberSerializer, RenewalPendingSerializer, PendingMemberSerializer
 from django.db import transaction
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
 from django.shortcuts import get_object_or_404
+
 
 class NewPendingMemberCreateView(generics.CreateAPIView):
     queryset = PendingMember.objects.all()
@@ -360,6 +368,7 @@ class NewPendingMemberCreateView(generics.CreateAPIView):
 
     def perform_create(self, serializer):
         serializer.save(recorded_by=self.request.user)
+
 
 class RenewalPendingMemberCreateView(APIView):
     permission_classes = [IsReceptionist]
@@ -375,72 +384,96 @@ class RenewalPendingMemberCreateView(APIView):
         pending = PendingMember.objects.create(
             first_name=member.user.first_name,
             last_name=member.user.last_name,
-            phone_number=member.user.phone_number,
+            phone_number=str(member.user.phone_number),
             weight=member.weight,
             height=member.height,
             gender=member.gender,
             age=member.age,
             package_type=serializer.validated_data["package_type"],
-            password=member.user.password,  # reuse existing hash
+            password=member.user.password,
             pending_type="renewal",
             recorded_by=request.user,
         )
 
         return Response(
-            {
-                "message": "Renewal pending recorded",
-                "pending_id": pending.id,
-            },
-            status=status.HTTP_201_CREATED
+            {"message": "Renewal pending recorded", "pending_id": pending.id},
+            status=status.HTTP_201_CREATED,
         )
+
+
+class InstantRenewalView(APIView):
+    permission_classes = [IsReceptionist]
+
+    def post(self, request, pk):
+        member = get_object_or_404(MemberProfile, pk=pk)
+        now = timezone.now()
+
+        months = PACKAGE_DURATION[request.data["package_type"]]
+        member.start_date = now
+        member.end_date = now + timedelta(days=30 * months)
+        member.package_type = request.data["package_type"]
+        member.is_renewal = True
+        member.user.is_active = True
+        member.user.save(update_fields=["is_active"])
+        member.save(update_fields=["start_date", "end_date", "package_type", "is_renewal"])
+
+        return Response({"message": "Membership renewed instantly"})
+
+
 class ActivatePendingMemberView(APIView):
     permission_classes = [IsReceptionist]
 
     @transaction.atomic
     def post(self, request, pk):
-        pending = get_object_or_404(
-            PendingMember,
-            pk=pk,
-            status="pending"
-        )
+        pending = get_object_or_404(PendingMember, pk=pk)
+        now = timezone.now()
+        activated_profile = None
 
-        # Create MemberProfile from pending
-        member_data = {
-            "first_name": pending.first_name,
-            "last_name": pending.last_name,
-            "phone_number": pending.phone_number,
-            "password": pending.password,  # already hashed
-            "weight": pending.weight,
-            "height": pending.height,
-            "gender": pending.gender,
-            "age": pending.age,
-            "package_type": pending.package_type,
-            "start_date": timezone.now(),
-        }
+        if pending.pending_type == "new":
+            user = User.objects.create(
+                phone_number=pending.phone_number,
+                first_name=pending.first_name,
+                last_name=pending.last_name,
+                role="member",
+            )
+            user.password = pending.password
+            user.save(update_fields=["password"])
 
-        serializer = MemberCreateSerializer(data=member_data)
-        serializer.is_valid(raise_exception=True)
-        profile = serializer.save()
+            activated_profile = MemberProfile.objects.create(
+                user=user,
+                package_type=pending.package_type,
+                start_date=now,
+                end_date=now + timedelta(days=30 * PACKAGE_DURATION[pending.package_type]),
+                is_renewal=False,
+            )
 
-        # Optional audit: store activated_at and profile temporarily before delete
-        pending.activated_at = timezone.now()
-        pending.activated_profile = profile
+        elif pending.pending_type == "renewal":
+            member = get_object_or_404(
+                MemberProfile,
+                user__phone_number=pending.phone_number,
+            )
+            member.start_date = now
+            member.end_date = now + timedelta(days=30 * PACKAGE_DURATION[pending.package_type])
+            member.package_type = pending.package_type
+            member.is_renewal = True
+            member.user.is_active = True
+            member.user.save(update_fields=["is_active"])
+            member.save(update_fields=["start_date", "end_date", "package_type", "is_renewal"])
+            activated_profile = member
+
         pending.status = "activated"
+        pending.activated_at = now
+        pending.activated_profile = activated_profile
+        pending.save(update_fields=["status", "activated_at", "activated_profile"])
 
-        # Now safely remove only THIS pending member
-        pending.delete()
+        return Response({"message": "Member activated"})
 
-        return Response(
-            {
-                "message": "Membership activated",
-                "member_profile_id": profile.id,
-            },
-            status=status.HTTP_201_CREATED
-        )
 
 class PendingMemberListView(generics.ListAPIView):
     serializer_class = PendingMemberSerializer
     permission_classes = [IsReceptionist]
+    # No pagination — returns a plain list
+    pagination_class = None
 
     def get_queryset(self):
         return PendingMember.objects.filter(status="pending").order_by("-recorded_at")
