@@ -1,5 +1,5 @@
 from rest_framework import generics,permissions
-from .models import MemberProfile
+from .models import PACKAGE_DURATION, MemberProfile
 from .serializers import MemberCreateSerializer, TrainerUpdateSerializer, MemberUpdateSerializer
 from accounts.permissions import IsReceptionist, IsTrainer, IsMember,CanViewMemberDetail ,CanViewMembersList
 from rest_framework.response import Response
@@ -308,6 +308,8 @@ class MemberAttachImageView(generics.UpdateAPIView):
     http_method_names = ["put"]
     lookup_field = "pk"
 from .serializers import LockerAssignSerializer
+from django.utils.timezone import now
+from datetime import timedelta
 
 
 class AssignLockerAPIView(APIView):
@@ -345,6 +347,19 @@ class LockerListAPIView(APIView):
 
         serializer = LockerListSerializer(lockers, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
+    def get_queryset(self):
+        lockers = Locker.objects.select_related("member")
+
+        today = now().date()
+
+        for locker in lockers:
+            if locker.assigned_at:
+                expiry = locker.assigned_at + timedelta(days=30)
+                locker.days_left = (expiry - today).days
+            else:
+                locker.days_left = None
+
+        return lockers
 from .models import PendingMember
 from .serializers import NewPendingMemberSerializer,RenewalPendingSerializer,PendingMemberSerializer
 from django.db import transaction
@@ -393,50 +408,73 @@ class RenewalPendingMemberCreateView(APIView):
             },
             status=status.HTTP_201_CREATED
         )
+
+class InstantRenewalView(APIView):
+
+    def post(self, request, pk):
+
+        member = get_object_or_404(MemberProfile, pk=pk)
+
+        today = timezone.now().date()
+
+        duration = PACKAGE_DURATION[request.data["package_type"]]
+
+        member.start_date = today
+        member.end_date = today + timedelta(days=duration)
+
+        member.user.is_active = True
+        member.user.save()
+
+        member.package_type = request.data["package_type"]
+        member.save()
+
+        return Response({"message": "Membership renewed instantly"})
+
 class ActivatePendingMemberView(APIView):
     permission_classes = [IsReceptionist]
 
     @transaction.atomic
+
     def post(self, request, pk):
-        pending = get_object_or_404(
-            PendingMember,
-            pk=pk,
-            status="pending"
-        )
 
-        # Create MemberProfile from pending
-        member_data = {
-            "first_name": pending.first_name,
-            "last_name": pending.last_name,
-            "phone_number": pending.phone_number,
-            "password": pending.password,  # already hashed
-            "weight": pending.weight,
-            "height": pending.height,
-            "gender": pending.gender,
-            "age": pending.age,
-            "package_type": pending.package_type,
-            "start_date": timezone.now(),
-        }
+        pending = get_object_or_404(PendingMember, pk=pk)
 
-        serializer = MemberCreateSerializer(data=member_data)
-        serializer.is_valid(raise_exception=True)
-        profile = serializer.save()
+        # NEW MEMBER
+        if pending.pending_type == "new":
 
-        # Optional audit: store activated_at and profile temporarily before delete
-        pending.activated_at = timezone.now()
-        pending.activated_profile = profile
-        pending.status = "activated"
+            user = User.objects.create(
+                phone_number=pending.phone_number,
+                first_name=pending.first_name,
+                last_name=pending.last_name,
+                role="member"
+            )
 
-        # Now safely remove only THIS pending member
+            MemberProfile.objects.create(
+                user=user,
+                package_type=pending.package_type,
+                start_date=timezone.now().date(),
+                end_date=timezone.now().date() + timedelta(days=PACKAGE_DURATION[pending.package_type])
+            )
+
+        # RENEWAL
+        if pending.pending_type == "renewal":
+
+            member = MemberProfile.objects.get(id=pending.member.id)
+
+            today = timezone.now().date()
+
+            member.start_date = today
+            member.end_date = today + timedelta(days=PACKAGE_DURATION[pending.package_type])
+
+            member.user.is_active = True
+            member.user.save()
+
+            member.save()
+
         pending.delete()
 
-        return Response(
-            {
-                "message": "Membership activated",
-                "member_profile_id": profile.id,
-            },
-            status=status.HTTP_201_CREATED
-        )
+        return Response({"message": "Member activated"})
+
 
 class PendingMemberListView(generics.ListAPIView):
     serializer_class = PendingMemberSerializer

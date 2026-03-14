@@ -256,11 +256,11 @@ class LockerAssignSerializer(serializers.Serializer):
 
 
 class LockerListSerializer(serializers.ModelSerializer):
-    # Nested info: who has it assigned
     member_id = serializers.SerializerMethodField()
     member_name = serializers.SerializerMethodField()
     assignment_status = serializers.SerializerMethodField()
     expires_at = serializers.SerializerMethodField()
+    days_left = serializers.IntegerField(read_only=True)
 
     class Meta:
         model = Locker
@@ -272,11 +272,11 @@ class LockerListSerializer(serializers.ModelSerializer):
             "member_name",
             "assignment_status",
             "expires_at",
+            "days_left",
         ]
 
     def get_member_id(self, obj):
         assignment = getattr(obj, "assignments", None)
-        # pick active assignment if exists
         active_assignment = obj.assignments.filter(status="active").first()
         return active_assignment.member.id if active_assignment else None
 
@@ -313,11 +313,14 @@ class NewPendingMemberSerializer(serializers.ModelSerializer):
         ]
 
     def create(self, validated_data):
-        validated_data["password"] = make_password(
-            validated_data["password"]
-        )
+        validated_data["password"] = make_password(validated_data["password"])
         validated_data["pending_type"] = "new"
+        validated_data["activation_mode"] = "delayed"  # always delayed
+
         return PendingMember.objects.create(**validated_data)
+
+from django.utils import timezone
+
 class RenewalPendingSerializer(serializers.Serializer):
     member_id = serializers.IntegerField()
     package_type = serializers.ChoiceField(choices=PACKAGE_CHOICES)
@@ -328,12 +331,23 @@ class RenewalPendingSerializer(serializers.Serializer):
         except MemberProfile.DoesNotExist:
             raise serializers.ValidationError("Member not found.")
 
+        # Check if member is already active
         if member.user.is_active:
             raise serializers.ValidationError(
                 "Member is still active and cannot be renewed."
             )
-        return value
 
+        # ✅ Prevent duplicate pending renewals
+        if PendingMember.objects.filter(
+            phone_number=member.user.phone_number,
+            pending_type="renewal",
+            status="pending"
+        ).exists():
+            raise serializers.ValidationError(
+                "A pending renewal already exists for this member."
+            )
+
+        return value
 class PendingMemberSerializer(serializers.ModelSerializer):
     recorded_by = serializers.CharField(
         source="recorded_by.username",
@@ -349,6 +363,7 @@ class PendingMemberSerializer(serializers.ModelSerializer):
             "phone_number",
             "pending_type",
             "package_type",
+            "activation_mode",
             "status",
             "recorded_by",
             "recorded_at",

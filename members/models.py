@@ -225,6 +225,7 @@ def assign_locker(*, member, locker_number):
 
     return assignment
 class PendingMember(models.Model):
+
     STATUS_CHOICES = [
         ("pending", "Pending"),
         ("activated", "Activated"),
@@ -235,21 +236,37 @@ class PendingMember(models.Model):
         ("renewal", "Renewal"),
     ]
 
+    ACTIVATION_MODE_CHOICES = [
+        ("instant", "Instant"),
+        ("delayed", "Delayed"),
+    ]
+
     first_name = models.CharField(max_length=50)
     last_name = models.CharField(max_length=50)
-    phone_number = models.CharField(max_length=20)
+
+    phone_number = models.CharField(max_length=20, unique=True)
+
     weight = models.FloatField(null=True, blank=True)
     height = models.FloatField(null=True, blank=True)
+
     gender = models.CharField(max_length=10, choices=GENDER_CHOICES)
     age = models.IntegerField(null=True, blank=True)
-    activated_at = models.DateTimeField(null=True, blank=True)
 
     package_type = models.CharField(max_length=20, choices=PACKAGE_CHOICES)
-    password = models.CharField(max_length=128)  # hashed
 
+    password = models.CharField(max_length=128)
+
+    # new or renewal
     pending_type = models.CharField(
         max_length=10,
         choices=PENDING_TYPE_CHOICES
+    )
+
+    # instant activation or delayed activation
+    activation_mode = models.CharField(
+        max_length=10,
+        choices=ACTIVATION_MODE_CHOICES,
+        default="delayed"
     )
 
     status = models.CharField(
@@ -263,7 +280,10 @@ class PendingMember(models.Model):
         on_delete=models.PROTECT,
         related_name="pending_created"
     )
+
     recorded_at = models.DateTimeField(auto_now_add=True)
+
+    activated_at = models.DateTimeField(null=True, blank=True)
 
     activated_profile = models.OneToOneField(
         MemberProfile,
@@ -271,6 +291,8 @@ class PendingMember(models.Model):
         blank=True,
         on_delete=models.PROTECT
     )
-
+    def clean(self):
+        if self.pending_type == "new" and self.activation_mode == "instant":
+            raise ValidationError("New members cannot use instant activation.")
     def __str__(self):
         return f"{self.first_name} {self.last_name} ({self.pending_type})"
