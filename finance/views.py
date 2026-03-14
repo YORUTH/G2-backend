@@ -62,7 +62,7 @@ class FinanceReportView(APIView):
         # --- Pending members rows ---
         for p in pending_members:
             months = PACKAGE_DURATION[p.package_type]
-            base_amount = months * 1000  # k per month
+            base_amount = months * 3000  # k per month
             card_fee = 400 if p.pending_type == "new" else 0
             total_paid = base_amount + card_fee
 
