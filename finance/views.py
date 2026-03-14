@@ -39,7 +39,7 @@ class FinanceReportView(APIView):
         # --- Active members rows ---
         for m in active_members:
             months = PACKAGE_DURATION[m.package_type]
-            base_amount = months * 1000  # k=1000 per month for example
+            base_amount = months * 3000  # k=1000 per month for example
             card_fee = 400  # one-time fee
             total_paid = base_amount + card_fee
 
