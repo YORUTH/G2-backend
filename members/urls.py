@@ -6,7 +6,6 @@ from .views import (
     MyProfileView,
     BarcodeCheckInView,
     RecentCheckInsView,
-    ReceptionistUpdateMemberView,
     RecentRegistrationsView,
     MemberAttendanceCalendarView,
     ReceptionistUpcomingExpirationsView,
@@ -26,7 +25,6 @@ urlpatterns = [
     # MEMBER MANAGEMENT
     path("create/", MemberCreateView.as_view(), name="member-create"),
     path("list/", ListMembersView.as_view(), name="members-list"),
-    path("update/<int:pk>/", ReceptionistUpdateMemberView.as_view(), name="member-receptionist-update"),
     path("<int:pk>/trainer-update/", TrainerUpdateMemberView.as_view(), name="member-trainer-update"),
 
     # MEMBER PROFILE
