@@ -441,10 +441,23 @@ class InstantRenewalView(APIView):
         member = get_object_or_404(MemberProfile, pk=pk)
         now = timezone.now()
 
-        months = PACKAGE_DURATION[request.data["package_type"]]
+        if member.user.is_active and member.end_date and member.end_date > now:
+            return Response(
+                {"detail": "Member still has an active membership."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        package_type = request.data.get("package_type")
+        if not package_type or package_type not in PACKAGE_DURATION:
+            return Response(
+                {"detail": "Invalid or missing package_type."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        months = PACKAGE_DURATION[package_type]
         member.start_date = now
         member.end_date = now + timedelta(days=30 * months)
-        member.package_type = request.data["package_type"]
+        member.package_type = package_type
         member.is_renewal = True
         member.user.is_active = True
         member.user.save(update_fields=["is_active"])
