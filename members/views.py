@@ -431,7 +431,13 @@ class RenewalPendingMemberCreateView(APIView):
 class InstantRenewalView(APIView):
     permission_classes = [IsReceptionist]
 
+    def put(self, request, pk):
+        return self._renew(request, pk)
+
     def post(self, request, pk):
+        return self._renew(request, pk)
+
+    def _renew(self, request, pk):
         member = get_object_or_404(MemberProfile, pk=pk)
         now = timezone.now()
 
