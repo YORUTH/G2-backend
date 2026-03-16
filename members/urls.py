@@ -52,7 +52,7 @@ urlpatterns = [
     # PENDING MEMBERS
     path("pending/", PendingMemberListView.as_view(), name="pending-list"),
     path("pending/new/", NewPendingMemberCreateView.as_view(), name="pending-new-create"),
-    path("pending/renew/<int:pk>/", InstantRenewalView.as_view(), name="instant-renewal"),
+    path("update/<int:pk>/", InstantRenewalView.as_view(), name="instant-renewal"),
     path("pending/renewal/", RenewalPendingMemberCreateView.as_view(), name="pending-renewal-create"),
     path("pending/<int:pk>/activate/", ActivatePendingMemberView.as_view(), name="pending-activate"),
 
