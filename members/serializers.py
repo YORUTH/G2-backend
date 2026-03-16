@@ -71,9 +71,6 @@ class TrainerUpdateSerializer(serializers.ModelSerializer):
         ]
 
 
-# Read-only serializer used by list, detail, check-in, and profile views.
-# MemberUpdateSerializer has been removed — use the pending/instant renewal
-# endpoints for membership changes.
 class MemberReadSerializer(serializers.ModelSerializer):
     phone_number = serializers.CharField(source="user.phone_number", read_only=True)
     first_name = serializers.CharField(source="user.first_name", read_only=True)
@@ -227,9 +224,6 @@ class LockerListSerializer(serializers.ModelSerializer):
     member_name = serializers.SerializerMethodField()
     assignment_status = serializers.SerializerMethodField()
     expires_at = serializers.SerializerMethodField()
-    # FIX (BUG 3): was IntegerField(read_only=True) which always returned null
-    # because Locker has no days_left attribute and get_queryset() was never
-    # called. Now computed directly from the active assignment.
     days_left = serializers.SerializerMethodField()
 
     class Meta:
@@ -245,8 +239,12 @@ class LockerListSerializer(serializers.ModelSerializer):
             "days_left",
         ]
 
+
     def _active_assignment(self, obj):
-        return obj.assignments.filter(status="active").first()
+        assignments = getattr(obj, "active_assignments", None)
+        if assignments is None:
+            return obj.assignments.filter(status="active").first()
+        return assignments[0] if assignments else None
 
     def get_member_id(self, obj):
         a = self._active_assignment(obj)
@@ -322,10 +320,12 @@ class RenewalPendingSerializer(serializers.Serializer):
 
 
 class PendingMemberSerializer(serializers.ModelSerializer):
-    recorded_by = serializers.CharField(
-        source="recorded_by.username",
-        read_only=True
-    )
+    recorded_by = serializers.SerializerMethodField()
+
+    def get_recorded_by(self, obj):
+        if obj.recorded_by:
+            return f"{obj.recorded_by.first_name} {obj.recorded_by.last_name}"
+        return None
 
     class Meta:
         model = PendingMember

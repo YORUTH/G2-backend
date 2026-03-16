@@ -61,8 +61,8 @@ class FinanceReportView(APIView):
 
         # ── Active members whose membership started in the date range ──────
         active_members = MemberProfile.objects.select_related(
-            "user", "locker_assignment"
-        ).filter(
+            "user"
+        ).prefetch_related("locker_assignments").filter(
             start_date__gte=start_date,
             start_date__lt=end_date,
         )

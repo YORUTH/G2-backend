@@ -152,10 +152,10 @@ ASSIGNMENT_STATUS = [
 
 
 class LockerAssignment(models.Model):
-    member = models.OneToOneField(
+    member = models.ForeignKey(
         MemberProfile,
         on_delete=models.CASCADE,
-        related_name="locker_assignment"
+        related_name="locker_assignments"
     )
     locker = models.ForeignKey(
         Locker,
@@ -191,10 +191,10 @@ def assign_locker(*, member, locker_number):
 
     member = MemberProfile.objects.select_for_update().get(pk=member.pk)
 
-    if hasattr(member, "locker_assignment"):
-        assignment = member.locker_assignment
-        assignment.refresh_status()
-        if assignment.status == "active":
+    active_assignment = member.locker_assignments.filter(status="active").first()
+    if active_assignment:
+        active_assignment.refresh_status()
+        if active_assignment.status == "active":
             raise ValidationError("Member already has an active locker.")
 
     locker = Locker.objects.select_for_update().get(locker_number=locker_number)

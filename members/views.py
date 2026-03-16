@@ -321,8 +321,9 @@ class MemberAttachImageView(generics.UpdateAPIView):
 
 
 from .serializers import LockerAssignSerializer
-from .models import Locker
+from .models import Locker, LockerAssignment
 from .serializers import LockerListSerializer
+from django.db.models import Prefetch
 
 
 class AssignLockerAPIView(APIView):
@@ -348,9 +349,35 @@ class LockerListAPIView(APIView):
     permission_classes = [IsReceptionist]
 
     def get(self, request):
-        lockers = Locker.objects.all().order_by("locker_number")
-        for locker in lockers:
-            locker.refresh_status()
+        now = timezone.now()
+
+        expired_assignments = LockerAssignment.objects.filter(
+            status="active", expires_at__lte=now
+        )
+        expired_locker_ids = list(
+            expired_assignments.values_list("locker_id", flat=True)
+        )
+        expired_assignments.update(status="expired", expired_at=now)
+
+        Locker.objects.filter(id__in=expired_locker_ids).update(
+            status="cooldown",
+            cooldown_until=now + timedelta(days=3),
+        )
+
+        Locker.objects.filter(
+            status="cooldown", cooldown_until__lte=now
+        ).update(status="available", cooldown_until=None)
+
+        lockers = Locker.objects.prefetch_related(
+            Prefetch(
+                "assignments",
+                queryset=LockerAssignment.objects.filter(
+                    status="active"
+                ).select_related("member__user"),
+                to_attr="active_assignments",
+            )
+        ).order_by("locker_number")
+
         serializer = LockerListSerializer(lockers, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -426,6 +453,13 @@ class ActivatePendingMemberView(APIView):
     @transaction.atomic
     def post(self, request, pk):
         pending = get_object_or_404(PendingMember, pk=pk)
+
+        if pending.status == "activated":
+            return Response(
+                {"detail": "This pending member has already been activated."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         now = timezone.now()
         activated_profile = None
 
