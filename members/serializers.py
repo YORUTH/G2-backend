@@ -6,6 +6,10 @@ from django.contrib.auth import get_user_model
 from datetime import timedelta
 from .models import PendingMember
 
+from django.core.exceptions import ValidationError as DjangoValidationError
+from django.db import transaction
+from .models import MemberProfile, Locker, assign_locker
+
 User = get_user_model()
 PACKAGE_CHOICES = [(key, key.capitalize()) for key in PACKAGE_DURATION.keys()]
 
@@ -109,10 +113,19 @@ class MemberReadSerializer(serializers.ModelSerializer):
 
 class CheckInSerializer(serializers.ModelSerializer):
     member = MemberReadSerializer(read_only=True)
+    locker_number = serializers.SerializerMethodField()
 
     class Meta:
         model = CheckIn
-        fields = ["id", "member", "timestamp"]
+        fields = ["id", "member", "locker_number", "timestamp"]
+
+    def get_locker_number(self, obj):
+        active = obj.member.locker_assignments.filter(
+            status="active", expires_at__gt=timezone.now()
+        ).first()
+        if active:
+            return active.locker.locker_number
+        return None
 
 
 class RecentCheckInSerializer(serializers.ModelSerializer):
@@ -182,9 +195,6 @@ class MemberImageAttachSerializer(serializers.ModelSerializer):
         return instance
 
 
-from django.core.exceptions import ValidationError as DjangoValidationError
-from django.db import transaction
-from .models import MemberProfile, Locker, assign_locker
 
 
 class LockerAssignSerializer(serializers.Serializer):
