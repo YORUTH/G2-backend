@@ -79,9 +79,6 @@ def make_profile(user=None, package_type="bronze", **kwargs):
         )
 
 
-# ---------------------------------------------------------------------------
-# 1. Model tests
-# ---------------------------------------------------------------------------
 
 class TestMemberProfileModel(TestCase):
 
@@ -147,20 +144,18 @@ class TestLockerModel(TestCase):
         locker.refresh_from_db()
         self.assertEqual(locker.status, "cooldown")
 
-    def test_assignment_expires_and_starts_cooldown(self):
+    def test_assignment_expires_on_refresh(self):
         user = make_user(phone="+251911000020")
         profile = make_profile(user=user)
-        locker = Locker.objects.create(locker_number=10, status="active")
+        locker = Locker.objects.create(locker_number=10, status="available")
         assignment = LockerAssignment.objects.create(
             member=profile,
             locker=locker,
             expires_at=timezone.now() - timedelta(seconds=1),
         )
         assignment.refresh_status()
-        locker.refresh_from_db()
         assignment.refresh_from_db()
         self.assertEqual(assignment.status, "expired")
-        self.assertEqual(locker.status, "cooldown")
 
     def test_assign_locker_function_happy_path(self):
         user = make_user(phone="+251911000021")
@@ -168,7 +163,7 @@ class TestLockerModel(TestCase):
         Locker.objects.create(locker_number=20, status="available")
         assignment = assign_locker(member=profile, locker_number=20)
         self.assertEqual(assignment.member, profile)
-        self.assertEqual(Locker.objects.get(locker_number=20).status, "active")
+        self.assertEqual(assignment.locker.locker_number, 20)
 
     def test_assign_locker_rejects_double_assignment(self):
         from django.core.exceptions import ValidationError
@@ -180,17 +175,59 @@ class TestLockerModel(TestCase):
         with self.assertRaises(ValidationError):
             assign_locker(member=profile, locker_number=22)
 
-    def test_assign_locker_rejects_cooldown_locker(self):
+    def test_assign_locker_rejects_same_gender_cooldown(self):
         from django.core.exceptions import ValidationError
-        user = make_user(phone="+251911000023")
-        profile = make_profile(user=user)
-        Locker.objects.create(
-            locker_number=23,
-            status="cooldown",
-            cooldown_until=timezone.now() + timedelta(days=2),
+        user1 = make_user(phone="+251911000023")
+        profile1 = make_profile(user=user1, gender="male")
+        user2 = make_user(phone="+251911000024")
+        profile2 = make_profile(user=user2, gender="male")
+        locker = Locker.objects.create(locker_number=23, status="available")
+        LockerAssignment.objects.create(
+            member=profile1, locker=locker,
+            expires_at=timezone.now() - timedelta(seconds=1),
+            status="expired", expired_at=timezone.now(),
         )
         with self.assertRaises(ValidationError):
-            assign_locker(member=profile, locker_number=23)
+            assign_locker(member=profile2, locker_number=23)
+
+    def test_same_locker_different_genders_allowed(self):
+        male_user = make_user(phone="+251911000025")
+        male_profile = make_profile(user=male_user, gender="male")
+        female_user = make_user(phone="+251911000026")
+        female_profile = make_profile(user=female_user, gender="female")
+        Locker.objects.create(locker_number=24, status="available")
+        assign_locker(member=male_profile, locker_number=24)
+        assign_locker(member=female_profile, locker_number=24)
+        self.assertEqual(
+            LockerAssignment.objects.filter(
+                locker__locker_number=24, status="active"
+            ).count(), 2
+        )
+
+    def test_same_locker_same_gender_rejected(self):
+        from django.core.exceptions import ValidationError
+        user1 = make_user(phone="+251911000027")
+        profile1 = make_profile(user=user1, gender="female")
+        user2 = make_user(phone="+251911000028")
+        profile2 = make_profile(user=user2, gender="female")
+        Locker.objects.create(locker_number=25, status="available")
+        assign_locker(member=profile1, locker_number=25)
+        with self.assertRaises(ValidationError):
+            assign_locker(member=profile2, locker_number=25)
+
+    def test_cooldown_opposite_gender_allowed(self):
+        user1 = make_user(phone="+251911000029")
+        profile1 = make_profile(user=user1, gender="male")
+        user2 = make_user(phone="+251911000030")
+        profile2 = make_profile(user=user2, gender="female")
+        locker = Locker.objects.create(locker_number=26, status="available")
+        LockerAssignment.objects.create(
+            member=profile1, locker=locker,
+            expires_at=timezone.now() - timedelta(seconds=1),
+            status="expired", expired_at=timezone.now(),
+        )
+        assignment = assign_locker(member=profile2, locker_number=26)
+        self.assertEqual(assignment.member, profile2)
 
 
 # ---------------------------------------------------------------------------
@@ -211,7 +248,7 @@ class TestPermissions(APITestCase):
 
     def test_locker_list_requires_receptionist(self):
         self.client.force_authenticate(user=self.trainer)
-        resp = self.client.get(reverse("locker-list"))
+        resp = self.client.get(reverse("locker-list") + "?gender=male")
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_pending_list_requires_receptionist(self):
@@ -495,26 +532,30 @@ class TestLockerAssignment(APITestCase):
         self.client.post(reverse("locker-assign"), {
             "member_id": self.profile.id, "locker_number": 54,
         })
-        resp = self.client.get(reverse("locker-list"))
+        resp = self.client.get(reverse("locker-list") + "?gender=male")
         active = next(l for l in resp.data if l["locker_number"] == 54)
         self.assertIsNotNone(active["days_left"])
         self.assertGreater(active["days_left"], 0)
 
     def test_unassigned_locker_days_left_is_none(self):
         Locker.objects.create(locker_number=55, status="available")
-        resp = self.client.get(reverse("locker-list"))
+        resp = self.client.get(reverse("locker-list") + "?gender=male")
         locker = next(l for l in resp.data if l["locker_number"] == 55)
         self.assertIsNone(locker["days_left"])
 
-    def test_cooldown_locker_rejected(self):
-        Locker.objects.create(
-            locker_number=56, status="cooldown",
-            cooldown_until=timezone.now() + timedelta(days=2),
-        )
-        resp = self.client.post(reverse("locker-assign"), {
-            "member_id": self.profile.id, "locker_number": 56,
-        })
+    def test_locker_list_requires_gender_param(self):
+        resp = self.client.get(reverse("locker-list"))
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_locker_list_gender_isolation(self):
+        """Male locker assignment should not appear in female locker list."""
+        self.client.post(reverse("locker-assign"), {
+            "member_id": self.profile.id, "locker_number": 57,
+        })
+        resp = self.client.get(reverse("locker-list") + "?gender=female")
+        locker = next(l for l in resp.data if l["locker_number"] == 57)
+        self.assertEqual(locker["status"], "available")
+        self.assertIsNone(locker["member_id"])
 
 
 # ---------------------------------------------------------------------------

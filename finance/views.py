@@ -70,12 +70,13 @@ class FinanceReportView(APIView):
         for m in active_members:
             is_new = not m.is_renewal
 
-            # Locker fee: only if a locker was assigned on the same calendar
-            # day as the membership start (Addis Ababa local date).
-            start_local_date = m.start_date.astimezone(ADDIS_TZ).date()
+            start_local = m.start_date.astimezone(ADDIS_TZ)
+            day_start = start_local.replace(hour=0, minute=0, second=0, microsecond=0)
+            day_end = day_start + timedelta(days=1)
             has_locker = LockerAssignment.objects.filter(
                 member=m,
-                assigned_at__date=start_local_date,
+                assigned_at__gte=day_start,
+                assigned_at__lt=day_end,
             ).exists()
 
             base_amount, card_fee, locker_fee, total = calculate_amount(
@@ -105,6 +106,7 @@ class FinanceReportView(APIView):
         pending_members = PendingMember.objects.filter(
             recorded_at__gte=start_date,
             recorded_at__lt=end_date,
+            status="pending",
         )
 
         for p in pending_members:

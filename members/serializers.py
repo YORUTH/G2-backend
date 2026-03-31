@@ -215,14 +215,13 @@ class LockerAssignSerializer(serializers.Serializer):
 
         try:
             with transaction.atomic():
-                locker, _ = Locker.objects.select_for_update().get_or_create(
+                Locker.objects.get_or_create(
                     locker_number=locker_number,
                     defaults={"status": "available"},
                 )
-                locker.refresh_status()
                 assignment = assign_locker(
                     member=member,
-                    locker_number=locker.locker_number,
+                    locker_number=locker_number,
                 )
                 return assignment
         except DjangoValidationError as e:
@@ -230,9 +229,11 @@ class LockerAssignSerializer(serializers.Serializer):
 
 
 class LockerListSerializer(serializers.ModelSerializer):
+    gender = serializers.SerializerMethodField()
+    status = serializers.SerializerMethodField()
+    cooldown_until = serializers.SerializerMethodField()
     member_id = serializers.SerializerMethodField()
     member_name = serializers.SerializerMethodField()
-    assignment_status = serializers.SerializerMethodField()
     expires_at = serializers.SerializerMethodField()
     days_left = serializers.SerializerMethodField()
 
@@ -240,21 +241,47 @@ class LockerListSerializer(serializers.ModelSerializer):
         model = Locker
         fields = [
             "locker_number",
+            "gender",
             "status",
             "cooldown_until",
             "member_id",
             "member_name",
-            "assignment_status",
             "expires_at",
             "days_left",
         ]
 
+    def _get_assignments(self, obj):
+        return getattr(obj, "gender_assignments", [])
 
     def _active_assignment(self, obj):
-        assignments = getattr(obj, "active_assignments", None)
-        if assignments is None:
-            return obj.assignments.filter(status="active").first()
-        return assignments[0] if assignments else None
+        for a in self._get_assignments(obj):
+            if a.status == "active":
+                return a
+        return None
+
+    def _cooldown_assignment(self, obj):
+        now = self.context.get("now", timezone.now())
+        cooldown_threshold = now - timedelta(days=3)
+        for a in self._get_assignments(obj):
+            if a.status == "expired" and a.expired_at and a.expired_at > cooldown_threshold:
+                return a
+        return None
+
+    def get_gender(self, obj):
+        return self.context.get("gender")
+
+    def get_status(self, obj):
+        if self._active_assignment(obj):
+            return "active"
+        if self._cooldown_assignment(obj):
+            return "cooldown"
+        return "available"
+
+    def get_cooldown_until(self, obj):
+        a = self._cooldown_assignment(obj)
+        if a and a.expired_at:
+            return a.expired_at + timedelta(days=3)
+        return None
 
     def get_member_id(self, obj):
         a = self._active_assignment(obj)
@@ -263,10 +290,6 @@ class LockerListSerializer(serializers.ModelSerializer):
     def get_member_name(self, obj):
         a = self._active_assignment(obj)
         return a.member.user.first_name if a else None
-
-    def get_assignment_status(self, obj):
-        a = self._active_assignment(obj)
-        return a.status if a else None
 
     def get_expires_at(self, obj):
         a = self._active_assignment(obj)

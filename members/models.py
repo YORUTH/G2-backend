@@ -174,40 +174,57 @@ class LockerAssignment(models.Model):
             self.expired_at = now
             self.save(update_fields=["status", "expired_at"])
 
-            self.locker.status = "cooldown"
-            self.locker.cooldown_until = now + timedelta(days=3)
-            self.locker.save(update_fields=["status", "cooldown_until"])
-
     def __str__(self):
         return f"{self.member.user.first_name} → Locker {self.locker.locker_number}"
 
 
 LOCKER_DURATION_DAYS = 30
+LOCKER_COOLDOWN_DAYS = 3
 
 
 @transaction.atomic
 def assign_locker(*, member, locker_number):
     now = timezone.now()
+    gender = member.gender
 
     member = MemberProfile.objects.select_for_update().get(pk=member.pk)
 
-    active_assignment = member.locker_assignments.filter(status="active").first()
-    if active_assignment:
-        active_assignment.refresh_status()
-        if active_assignment.status == "active":
+    existing = member.locker_assignments.filter(status="active").first()
+    if existing:
+        if existing.expires_at > now:
             raise ValidationError("Member already has an active locker.")
+        existing.status = "expired"
+        existing.expired_at = now
+        existing.save(update_fields=["status", "expired_at"])
 
     locker = Locker.objects.select_for_update().get(locker_number=locker_number)
-    locker.refresh_status()
 
-    if locker.status == "active":
-        raise ValidationError("Locker is currently assigned.")
+    LockerAssignment.objects.filter(
+        locker=locker, status="active", expires_at__lte=now, member__gender=gender,
+    ).update(status="expired", expired_at=now)
 
-    if locker.status == "cooldown":
-        remaining = locker.cooldown_until - now
+    if LockerAssignment.objects.filter(
+        locker=locker, status="active", member__gender=gender,
+    ).exists():
         raise ValidationError(
-            f"Locker is in cooldown. Available in {remaining.days} days."
+            f"Locker is currently assigned to a {gender} member."
         )
+
+    cooldown_threshold = now - timedelta(days=LOCKER_COOLDOWN_DAYS)
+    latest_expired = LockerAssignment.objects.filter(
+        locker=locker,
+        status="expired",
+        member__gender=gender,
+        expired_at__gt=cooldown_threshold,
+    ).order_by("-expired_at").first()
+
+    if latest_expired:
+        cooldown_end = latest_expired.expired_at + timedelta(days=LOCKER_COOLDOWN_DAYS)
+        if cooldown_end > now:
+            remaining = cooldown_end - now
+            raise ValidationError(
+                f"Locker is in cooldown for {gender}s. Available in {remaining.days} day(s)."
+            )
 
     expires_at = now + timedelta(days=LOCKER_DURATION_DAYS)
     assignment = LockerAssignment.objects.create(
@@ -216,10 +233,6 @@ def assign_locker(*, member, locker_number):
         assigned_at=now,
         expires_at=expires_at,
     )
-
-    locker.status = "active"
-    locker.cooldown_until = None
-    locker.save(update_fields=["status", "cooldown_until"])
 
     return assignment
 

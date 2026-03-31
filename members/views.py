@@ -350,35 +350,31 @@ class LockerListAPIView(APIView):
 
     def get(self, request):
         now = timezone.now()
+        gender = request.query_params.get("gender")
 
-        expired_assignments = LockerAssignment.objects.filter(
-            status="active", expires_at__lte=now
-        )
-        expired_locker_ids = list(
-            expired_assignments.values_list("locker_id", flat=True)
-        )
-        expired_assignments.update(status="expired", expired_at=now)
+        if gender not in ("male", "female"):
+            return Response(
+                {"detail": "Query param 'gender' is required (male or female)."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
-        Locker.objects.filter(id__in=expired_locker_ids).update(
-            status="cooldown",
-            cooldown_until=now + timedelta(days=3),
-        )
-
-        Locker.objects.filter(
-            status="cooldown", cooldown_until__lte=now
-        ).update(status="available", cooldown_until=None)
+        LockerAssignment.objects.filter(
+            status="active", expires_at__lte=now, member__gender=gender,
+        ).update(status="expired", expired_at=now)
 
         lockers = Locker.objects.prefetch_related(
             Prefetch(
                 "assignments",
                 queryset=LockerAssignment.objects.filter(
-                    status="active"
-                ).select_related("member__user"),
-                to_attr="active_assignments",
+                    member__gender=gender,
+                ).select_related("member__user").order_by("-assigned_at"),
+                to_attr="gender_assignments",
             )
         ).order_by("locker_number")
 
-        serializer = LockerListSerializer(lockers, many=True)
+        serializer = LockerListSerializer(
+            lockers, many=True, context={"gender": gender, "now": now}
+        )
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
