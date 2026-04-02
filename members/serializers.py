@@ -289,7 +289,11 @@ class LockerListSerializer(serializers.ModelSerializer):
 
     def get_member_name(self, obj):
         a = self._active_assignment(obj)
-        return a.member.user.first_name if a else None
+        if not a:
+            return None
+        u = a.member.user
+        parts = [p.strip() for p in (u.first_name or "", u.last_name or "") if p and p.strip()]
+        return " ".join(parts) if parts else None
 
     def get_expires_at(self, obj):
         a = self._active_assignment(obj)
