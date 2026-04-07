@@ -3,7 +3,7 @@ from rest_framework.views import APIView
 from django.utils import timezone
 from datetime import datetime, timedelta
 import pytz
-from finance.models import LockerAssignment
+from members.models import LockerAssignment
 from members.models import MemberProfile, PendingMember, PACKAGE_DURATION
 from accounts.permissions import IsReceptionist
 from .serializers import FinanceReportSerializer
