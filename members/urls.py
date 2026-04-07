@@ -18,6 +18,7 @@ from .views import (
     PendingMemberListView,
     ActivatePendingMemberView,
     InstantRenewalView,
+    PackageTypesView,
 )
 
 urlpatterns = [
@@ -55,5 +56,8 @@ urlpatterns = [
     path("update/<int:pk>/", InstantRenewalView.as_view(), name="instant-renewal"),
     path("pending/renewal/", RenewalPendingMemberCreateView.as_view(), name="pending-renewal-create"),
     path("pending/<int:pk>/activate/", ActivatePendingMemberView.as_view(), name="pending-activate"),
+
+    # PACKAGE INFO
+    path("package-types/", PackageTypesView.as_view(), name="package-types"),
 
 ]

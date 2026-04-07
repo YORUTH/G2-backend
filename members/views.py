@@ -534,3 +534,27 @@ class PendingMemberListView(generics.ListAPIView):
 
     def get_queryset(self):
         return PendingMember.objects.filter(status="pending").order_by("-recorded_at")
+
+
+class PackageTypesView(APIView):
+    """
+    Public GET endpoint that returns every available package type
+    together with its human-readable label, duration (months), and price.
+    """
+    permission_classes = [IsReceptionist]
+
+    def get(self, request):
+
+        from .constants import PACKAGE_PRICES
+        from .models import PACKAGE_CHOICES, PACKAGE_DURATION
+
+        packages = []
+        for key, label in PACKAGE_CHOICES:
+            packages.append({
+                "key": key,
+                "label": label,
+                "duration_months": PACKAGE_DURATION.get(key),
+                "price": PACKAGE_PRICES.get(key),
+            })
+
+        return Response(packages)
