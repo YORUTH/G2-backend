@@ -4,7 +4,7 @@ from django.utils import timezone
 from datetime import datetime, timedelta
 import pytz
 
-from members.models import MemberProfile, PendingMember, LockerAssignment, PACKAGE_DURATION
+from members.models import MemberProfile, PendingMember, PACKAGE_DURATION
 from accounts.permissions import IsReceptionist
 from .serializers import FinanceReportSerializer
 from .constants import calculate_amount
@@ -17,15 +17,27 @@ def _parse_date_range(params):
     Returns (start_date, end_date) as aware datetimes in UTC.
 
     Query param combinations:
+      ?month=YYYY-MM                   → full month range
       ?from=YYYY-MM-DD&to=YYYY-MM-DD  → full custom range (to is inclusive)
       ?from=YYYY-MM-DD                → single day
       (none)                          → today in Addis Ababa time
     """
     now = timezone.now()
+    month = params.get("month")
     date_from = params.get("from")
     date_to = params.get("to")
 
-    if date_from and date_to:
+    if month:
+        month_start = timezone.make_aware(
+            datetime.strptime(month, "%Y-%m"), ADDIS_TZ
+        )
+        if month_start.month == 12:
+            month_end_naive = datetime(month_start.year + 1, 1, 1)
+        else:
+            month_end_naive = datetime(month_start.year, month_start.month + 1, 1)
+        start = month_start
+        end = timezone.make_aware(month_end_naive, ADDIS_TZ)
+    elif date_from and date_to:
         start = timezone.make_aware(
             datetime.strptime(date_from, "%Y-%m-%d"), ADDIS_TZ
         )
@@ -70,14 +82,8 @@ class FinanceReportView(APIView):
         for m in active_members:
             is_new = not m.is_renewal
 
-            start_local = m.start_date.astimezone(ADDIS_TZ)
-            day_start = start_local.replace(hour=0, minute=0, second=0, microsecond=0)
-            day_end = day_start + timedelta(days=1)
-            has_locker = LockerAssignment.objects.filter(
-                member=m,
-                assigned_at__gte=day_start,
-                assigned_at__lt=day_end,
-            ).exists()
+            # Locker fee applies whenever the member has any locker assignment.
+            has_locker = m.locker_assignments.exists()
 
             base_amount, card_fee, locker_fee, total = calculate_amount(
                 m.package_type, is_new=is_new, has_locker=has_locker

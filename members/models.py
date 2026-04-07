@@ -10,6 +10,7 @@ from io import BytesIO
 from cloudinary.uploader import upload
 from django.db.models import F
 import random
+from .constants import get_package_price
 
 ADDIS_TZ = pytz.timezone("Africa/Addis_Ababa")
 
@@ -23,6 +24,10 @@ PACKAGE_CHOICES = [
     ("silver", "Silver - 3 Months"),
     ("gold", "Gold - 6 Months"),
     ("diamond", "Diamond - 12 Months"),
+    ("bronze_women", "Bronze (Women, 4-6 PM) - 1 Month"),
+    ("silver_women", "Silver (Women) - 3 Months"),
+    ("gold_women", "Gold (Women) - 6 Months"),
+    ("diamond_women", "Diamond (Women) - 12 Months"),
 ]
 
 PACKAGE_DURATION = {
@@ -30,6 +35,10 @@ PACKAGE_DURATION = {
     "silver": 3,
     "gold": 6,
     "diamond": 12,
+    "bronze_women": 1,
+    "silver_women": 3,
+    "gold_women": 6,
+    "diamond_women": 12,
 }
 
 
@@ -47,6 +56,14 @@ class MemberProfile(models.Model):
     start_date = models.DateTimeField(default=timezone.now)
     end_date = models.DateTimeField()
     is_renewal = models.BooleanField(default=False)
+
+    @property
+    def package_price(self):
+        return get_package_price(self.package_type)
+
+    def clean(self):
+        if self.package_type.endswith("_women") and self.gender != "female":
+            raise ValidationError("Women package types are only allowed for female members.")
 
     def generate_unique_barcode(self):
         while True:
@@ -285,9 +302,15 @@ class PendingMember(models.Model):
         on_delete=models.PROTECT
     )
 
+    @property
+    def package_price(self):
+        return get_package_price(self.package_type)
+
     def clean(self):
         if self.pending_type == "new" and self.activation_mode == "instant":
             raise ValidationError("New members cannot use instant activation.")
+        if self.package_type.endswith("_women") and self.gender != "female":
+            raise ValidationError("Women package types are only allowed for female members.")
 
     def __str__(self):
         return f"{self.first_name} {self.last_name} ({self.pending_type})"

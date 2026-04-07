@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
-from .models import MemberProfile, CheckIn, PACKAGE_DURATION
+from .models import MemberProfile, CheckIn, PACKAGE_DURATION, PACKAGE_CHOICES as MODEL_PACKAGE_CHOICES
 from django.utils import timezone
 from django.contrib.auth import get_user_model
 from datetime import timedelta
@@ -11,7 +11,14 @@ from django.db import transaction
 from .models import MemberProfile, Locker, assign_locker
 
 User = get_user_model()
-PACKAGE_CHOICES = [(key, key.capitalize()) for key in PACKAGE_DURATION.keys()]
+PACKAGE_CHOICES = MODEL_PACKAGE_CHOICES
+
+
+def _validate_women_package(package_type, gender):
+    if package_type and package_type.endswith("_women") and gender != "female":
+        raise serializers.ValidationError(
+            {"package_type": "Women package types are only allowed for female members."}
+        )
 
 
 class MemberCreateSerializer(serializers.ModelSerializer):
@@ -34,6 +41,10 @@ class MemberCreateSerializer(serializers.ModelSerializer):
             "package_type",
             "start_date",
         ]
+
+    def validate(self, attrs):
+        _validate_women_package(attrs.get("package_type"), attrs.get("gender"))
+        return attrs
 
     def create(self, validated_data):
         user_data = {
@@ -81,6 +92,7 @@ class MemberReadSerializer(serializers.ModelSerializer):
     last_name = serializers.CharField(source="user.last_name", read_only=True)
     is_active = serializers.BooleanField(source="user.is_active", read_only=True)
     left_days = serializers.SerializerMethodField(read_only=True)
+    package_price = serializers.IntegerField(read_only=True)
 
     class Meta:
         model = MemberProfile
@@ -97,6 +109,7 @@ class MemberReadSerializer(serializers.ModelSerializer):
             "barcode_image",
             "image_url",
             "package_type",
+            "package_price",
             "start_date",
             "end_date",
             "is_active",
@@ -323,6 +336,10 @@ class NewPendingMemberSerializer(serializers.ModelSerializer):
             "password",
         ]
 
+    def validate(self, attrs):
+        _validate_women_package(attrs.get("package_type"), attrs.get("gender"))
+        return attrs
+
     def create(self, validated_data):
         validated_data["password"] = make_password(validated_data["password"])
         validated_data["pending_type"] = "new"
@@ -351,9 +368,15 @@ class RenewalPendingSerializer(serializers.Serializer):
 
         return value
 
+    def validate(self, attrs):
+        member = MemberProfile.objects.get(pk=attrs["member_id"])
+        _validate_women_package(attrs.get("package_type"), member.gender)
+        return attrs
+
 
 class PendingMemberSerializer(serializers.ModelSerializer):
     recorded_by = serializers.SerializerMethodField()
+    package_price = serializers.IntegerField(read_only=True)
 
     def get_recorded_by(self, obj):
         if obj.recorded_by:
@@ -369,6 +392,7 @@ class PendingMemberSerializer(serializers.ModelSerializer):
             "phone_number",
             "pending_type",
             "package_type",
+            "package_price",
             "activation_mode",
             "status",
             "recorded_by",

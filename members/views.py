@@ -375,7 +375,10 @@ class LockerListAPIView(APIView):
         serializer = LockerListSerializer(
             lockers, many=True, context={"gender": gender, "now": now}
         )
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        # Hide unassigned lockers from the response to avoid cross-gender
+        # confusion in the receptionist UI.
+        filtered_data = [row for row in serializer.data if row.get("status") != "available"]
+        return Response(filtered_data, status=status.HTTP_200_OK)
 
 
 from .models import PendingMember
@@ -447,6 +450,11 @@ class InstantRenewalView(APIView):
         if not package_type or package_type not in PACKAGE_DURATION:
             return Response(
                 {"detail": "Invalid or missing package_type."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if package_type.endswith("_women") and member.gender != "female":
+            return Response(
+                {"detail": "Women package types are only allowed for female members."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
