@@ -218,6 +218,7 @@ def assign_locker(*, member, locker_number):
         expired_at__gt=cooldown_threshold,
     ).order_by("-expired_at").first()
 
+
     if latest_expired:
         cooldown_end = latest_expired.expired_at + timedelta(days=LOCKER_COOLDOWN_DAYS)
         if cooldown_end > now:
