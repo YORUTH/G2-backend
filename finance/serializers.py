@@ -1,11 +1,19 @@
 from rest_framework import serializers
+from .models import TemporalMember
+
+
+class TemporalMemberSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TemporalMember
+        fields = ["id", "full_name", "amount", "paid_at"]
+        read_only_fields = ["id", "amount"]
 
 
 class FinanceRowSerializer(serializers.Serializer):
     first_name = serializers.CharField()
     last_name = serializers.CharField()
-    status = serializers.CharField()         # "new" or "renewal"
-    member_state = serializers.CharField()   # "active" or "pending"
+    status = serializers.CharField()
+    member_state = serializers.CharField()
     package_type = serializers.CharField()
     months = serializers.IntegerField()
     base_amount = serializers.IntegerField()
@@ -18,6 +26,7 @@ class FinanceRowSerializer(serializers.Serializer):
 class FinanceSummarySerializer(serializers.Serializer):
     active_total = serializers.IntegerField()
     pending_total = serializers.IntegerField()
+    temporal_total = serializers.IntegerField()
     card_fees_total = serializers.IntegerField()
     locker_fees_total = serializers.IntegerField()
     grand_total = serializers.IntegerField()

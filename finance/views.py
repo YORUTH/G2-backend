@@ -1,13 +1,16 @@
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework import status
 from django.utils import timezone
+from django.shortcuts import get_object_or_404
 from datetime import datetime, timedelta
 import pytz
 from members.models import LockerAssignment
 from members.models import MemberProfile, PendingMember, PACKAGE_DURATION
 from accounts.permissions import IsReceptionist
-from .serializers import FinanceReportSerializer
+from .serializers import FinanceReportSerializer, TemporalMemberSerializer
 from .constants import calculate_amount, LOCKER_FEE
+from .models import TemporalMember, TEMPORAL_DAILY_FEE
 
 ADDIS_TZ = pytz.timezone("Africa/Addis_Ababa")
 
@@ -59,6 +62,10 @@ def _parse_date_range(params):
     return start, end
 
 
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#  Finance Report  (existing logic untouched + temporal rows appended)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 class FinanceReportView(APIView):
     permission_classes = [IsReceptionist]
 
@@ -70,6 +77,7 @@ class FinanceReportView(APIView):
         pending_total = 0
         card_fees_total = 0
         locker_fees_total = 0
+        temporal_total = 0
         counted_locker_ids = set()
 
         # ── Active members whose membership started in the date range ──────
@@ -120,7 +128,6 @@ class FinanceReportView(APIView):
             locker_fees_total += locker_fee
 
         # ── Pending members recorded in the date range ────────────────────
-        # Pending members haven't been activated yet so they have no locker.
         pending_members = PendingMember.objects.filter(
             recorded_at__gte=start_date,
             recorded_at__lt=end_date,
@@ -149,12 +156,8 @@ class FinanceReportView(APIView):
 
             pending_total += total
             card_fees_total += card_fee
-            # pending members have no locker fee
 
         # ── Standalone locker assignments in the date range ───────────────
-        # Picks up locker assignments that were NOT already bundled into an
-        # active-member registration row above (e.g. locker assigned to an
-        # existing member on a day different from their start_date).
         standalone_lockers = (
             LockerAssignment.objects
             .select_related("member__user")
@@ -183,13 +186,36 @@ class FinanceReportView(APIView):
             active_total += LOCKER_FEE
             locker_fees_total += LOCKER_FEE
 
-        grand_total = active_total + pending_total
+        # ── Temporal daily payments in the date range ─────────────────────
+        temporal_payments = TemporalMember.objects.filter(
+            paid_at__gte=start_date,
+            paid_at__lt=end_date,
+        )
+
+        for t in temporal_payments:
+            rows.append({
+                "first_name": t.full_name,
+                "last_name": "",
+                "status": "temporal",
+                "member_state": "temporal",
+                "package_type": "daily",
+                "months": 0,
+                "base_amount": t.amount,
+                "card_fee": 0,
+                "locker_fee": 0,
+                "total_paid": t.amount,
+                "paid_at": t.paid_at.astimezone(ADDIS_TZ),
+            })
+            temporal_total += t.amount
+
+        grand_total = active_total + pending_total + temporal_total
 
         data = {
             "rows": rows,
             "summary": {
                 "active_total": active_total,
                 "pending_total": pending_total,
+                "temporal_total": temporal_total,
                 "card_fees_total": card_fees_total,
                 "locker_fees_total": locker_fees_total,
                 "grand_total": grand_total,
@@ -198,3 +224,28 @@ class FinanceReportView(APIView):
 
         serializer = FinanceReportSerializer(data)
         return Response(serializer.data)
+
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#  Temporal Members — simple list / create / delete
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+class TemporalMemberListCreateView(APIView):
+    """
+    GET  → list all temporal daily payments.
+    POST → record a new daily payment.  Body: { "full_name": "Abebe Kebede" }
+           Amount is always 500 (auto-set).
+    """
+    permission_classes = [IsReceptionist]
+
+    def get(self, request):
+        payments = TemporalMember.objects.all()
+        serializer = TemporalMemberSerializer(payments, many=True)
+        return Response(serializer.data)
+
+    def post(self, request):
+        serializer = TemporalMemberSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+

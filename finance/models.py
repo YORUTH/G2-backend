@@ -1,10 +1,20 @@
-from members.models import PACKAGE_DURATION
-from members.constants import get_package_price
+from django.db import models
+from django.utils import timezone
 
-CARD_FEE = 400
+TEMPORAL_DAILY_FEE = 500
 
-def calculate_amount(package_type, is_new):
-    k = PACKAGE_DURATION.get(package_type, 0)
-    package_amount = get_package_price(package_type) if k else 0
-    card_fee = CARD_FEE if is_new else 0
-    return package_amount, card_fee, package_amount + card_fee
+
+class TemporalMember(models.Model):
+    """
+    A walk-in daily member. Each record = one day's payment of 500.
+    Only the full name is recorded.
+    """
+    full_name = models.CharField(max_length=100)
+    amount = models.PositiveIntegerField(default=TEMPORAL_DAILY_FEE)
+    paid_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ["-paid_at"]
+
+    def __str__(self):
+        return f"{self.full_name} – {self.paid_at:%Y-%m-%d}"
