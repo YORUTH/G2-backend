@@ -509,6 +509,21 @@ class ActivatePendingMemberView(APIView):
                 MemberProfile,
                 user__phone_number=pending.phone_number,
             )
+
+            # Guard: do not activate while the current membership is still valid.
+            # Active members may be pre-registered in the pending list but can
+            # only be activated once their existing membership has expired.
+            if member.user.is_active:
+                return Response(
+                    {
+                        "detail": (
+                            "Member's current membership has not yet expired. "
+                            "Activation is not allowed until it does."
+                        )
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
             member.start_date = now
             member.end_date = now + timedelta(days=30 * PACKAGE_DURATION[pending.package_type])
             member.package_type = pending.package_type

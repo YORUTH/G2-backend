@@ -629,13 +629,14 @@ class TestRenewalPending(APITestCase):
             ).exists()
         )
 
-    def test_active_member_cannot_be_renewed(self):
+    def test_active_member_can_be_added_to_pending(self):
+        """Active members may be pre-registered in the pending list."""
         self.user.is_active = True
         self.user.save()
         resp = self.client.post(self.url, {
             "member_id": self.profile.id, "package_type": "silver",
         })
-        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
 
     def test_duplicate_renewal_rejected(self):
         """Expired member cannot be added to pending list twice."""
@@ -738,6 +739,61 @@ class TestActivatePending(APITestCase):
     def test_nonexistent_pending_returns_404(self):
         resp = self.client.post(reverse("pending-activate", kwargs={"pk": 99999}))
         self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
+
+    @patch("members.models.upload", return_value=CLOUDINARY_MOCK)
+    @patch("barcode.writer.ImageWriter.save")
+    def test_activate_renewal_blocked_while_member_is_active(self, *_):
+        """Pending renewal cannot be activated while member's membership is still live."""
+        u = make_user(phone="+251911901010")
+        profile = make_profile(
+            user=u,
+            start_date=timezone.now() - timedelta(days=5),
+            end_date=timezone.now() + timedelta(days=25),  # still active
+        )
+        # ensure is_active is True
+        u.is_active = True
+        u.save()
+
+        pending = PendingMember.objects.create(
+            first_name=u.first_name, last_name=u.last_name,
+            phone_number=str(u.phone_number),
+            gender="male", package_type="silver",
+            password=u.password, pending_type="renewal",
+            activation_mode="delayed", recorded_by=self.receptionist,
+        )
+        resp = self.client.post(reverse("pending-activate", kwargs={"pk": pending.pk}))
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("not yet expired", resp.data["detail"])
+        # pending record stays in pending state — not consumed
+        pending.refresh_from_db()
+        self.assertEqual(pending.status, "pending")
+
+    @patch("members.models.upload", return_value=CLOUDINARY_MOCK)
+    @patch("barcode.writer.ImageWriter.save")
+    def test_activate_renewal_succeeds_once_member_expires(self, *_):
+        """Pending renewal activates normally after the member's membership has expired."""
+        u = make_user(phone="+251911901011")
+        profile = make_profile(
+            user=u,
+            start_date=timezone.now() - timedelta(days=60),
+            end_date=timezone.now() - timedelta(days=1),  # expired
+        )
+        u.is_active = False
+        u.save()
+
+        pending = PendingMember.objects.create(
+            first_name=u.first_name, last_name=u.last_name,
+            phone_number=str(u.phone_number),
+            gender="male", package_type="gold",
+            password=u.password, pending_type="renewal",
+            activation_mode="delayed", recorded_by=self.receptionist,
+        )
+        resp = self.client.post(reverse("pending-activate", kwargs={"pk": pending.pk}))
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        u.refresh_from_db()
+        profile.refresh_from_db()
+        self.assertTrue(u.is_active)
+        self.assertGreater(profile.end_date, timezone.now())
 
 
 # ---------------------------------------------------------------------------

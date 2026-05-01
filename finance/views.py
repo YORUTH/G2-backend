@@ -64,7 +64,7 @@ def _parse_date_range(params):
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 #  Finance Report  (existing logic untouched + temporal rows appended)
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━---━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 class FinanceReportView(APIView):
     permission_classes = [IsReceptionist]
@@ -81,11 +81,15 @@ class FinanceReportView(APIView):
         counted_locker_ids = set()
 
         # ── Active members whose membership started in the date range ──────
+        # Exclude members activated from the pending list — their payment
+        # was already recorded at pending time (recorded_at), not at
+        # activation time (start_date).
         active_members = MemberProfile.objects.select_related(
             "user"
         ).prefetch_related("locker_assignments").filter(
             start_date__gte=start_date,
             start_date__lt=end_date,
+            pendingmember__isnull=True,       # no PendingMember points here
         )
 
         for m in active_members:
@@ -128,10 +132,11 @@ class FinanceReportView(APIView):
             locker_fees_total += locker_fee
 
         # ── Pending members recorded in the date range ────────────────────
+        # Payment happens when a member is added to the pending list
+        # (recorded_at), so include both 'pending' and 'activated' entries.
         pending_members = PendingMember.objects.filter(
             recorded_at__gte=start_date,
             recorded_at__lt=end_date,
-            status="pending",
         )
 
         for p in pending_members:
