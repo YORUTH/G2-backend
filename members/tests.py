@@ -148,14 +148,20 @@ class TestLockerModel(TestCase):
         user = make_user(phone="+251911000020")
         profile = make_profile(user=user)
         locker = Locker.objects.create(locker_number=10, status="available")
+        expires_at = timezone.now() - timedelta(seconds=1)
         assignment = LockerAssignment.objects.create(
             member=profile,
             locker=locker,
-            expires_at=timezone.now() - timedelta(seconds=1),
+            expires_at=expires_at,
+            expired_at=None,
         )
         assignment.refresh_status()
         assignment.refresh_from_db()
         self.assertEqual(assignment.status, "expired")
+        self.assertEqual(
+            assignment.expired_at,
+            expires_at + timedelta(days=3),
+        )
 
     def test_assign_locker_function_happy_path(self):
         user = make_user(phone="+251911000021")
@@ -165,15 +171,40 @@ class TestLockerModel(TestCase):
         self.assertEqual(assignment.member, profile)
         self.assertEqual(assignment.locker.locker_number, 20)
 
-    def test_assign_locker_rejects_double_assignment(self):
-        from django.core.exceptions import ValidationError
+    def test_member_can_transfer_to_another_locker(self):
         user = make_user(phone="+251911000022")
         profile = make_profile(user=user)
         Locker.objects.create(locker_number=21, status="available")
         Locker.objects.create(locker_number=22, status="available")
         assign_locker(member=profile, locker_number=21)
-        with self.assertRaises(ValidationError):
-            assign_locker(member=profile, locker_number=22)
+        assignment = assign_locker(member=profile, locker_number=22)
+        self.assertEqual(assignment.locker.locker_number, 22)
+        self.assertFalse(
+            profile.locker_assignments.filter(
+                locker__locker_number=21, status="active"
+            ).exists()
+        )
+
+    def test_can_reassign_locker_after_expiry(self):
+        from django.core.exceptions import ValidationError
+        user1 = make_user(phone="+251911000031")
+        profile1 = make_profile(user=user1, gender="male")
+        user2 = make_user(phone="+251911000032")
+        profile2 = make_profile(user=user2, gender="male")
+        locker = Locker.objects.create(locker_number=27, status="available")
+        LockerAssignment.objects.create(
+            member=profile1,
+            locker=locker,
+            expires_at=timezone.now() - timedelta(days=5),
+            status="active",
+        )
+        assignment = assign_locker(member=profile2, locker_number=27)
+        self.assertEqual(assignment.member, profile2)
+        self.assertFalse(
+            LockerAssignment.objects.filter(
+                member=profile1, locker=locker, status="active"
+            ).exists()
+        )
 
     def test_assign_locker_rejects_same_gender_cooldown(self):
         from django.core.exceptions import ValidationError
@@ -182,13 +213,36 @@ class TestLockerModel(TestCase):
         user2 = make_user(phone="+251911000024")
         profile2 = make_profile(user=user2, gender="male")
         locker = Locker.objects.create(locker_number=23, status="available")
+        expires_at = timezone.now() - timedelta(days=1)
         LockerAssignment.objects.create(
             member=profile1, locker=locker,
-            expires_at=timezone.now() - timedelta(seconds=1),
-            status="expired", expired_at=timezone.now(),
+            expires_at=expires_at,
+            status="expired",
+            expired_at=expires_at + timedelta(days=3),
         )
         with self.assertRaises(ValidationError):
             assign_locker(member=profile2, locker_number=23)
+
+    def test_previous_owner_can_reassign_during_cooldown(self):
+        from django.core.exceptions import ValidationError
+        user1 = make_user(phone="+251911000033")
+        profile1 = make_profile(user=user1, gender="male")
+        user2 = make_user(phone="+251911000034")
+        profile2 = make_profile(user=user2, gender="male")
+        locker = Locker.objects.create(locker_number=28, status="available")
+        expires_at = timezone.now() - timedelta(days=1)
+        LockerAssignment.objects.create(
+            member=profile1, locker=locker,
+            expires_at=expires_at,
+            status="expired",
+            expired_at=expires_at + timedelta(days=3),
+        )
+        with self.assertRaises(ValidationError):
+            assign_locker(member=profile2, locker_number=28)
+        assignment = assign_locker(member=profile1, locker_number=28)
+        self.assertEqual(assignment.member, profile1)
+        self.assertEqual(assignment.status, "active")
+        self.assertIsNone(assignment.expired_at)
 
     def test_same_locker_different_genders_allowed(self):
         male_user = make_user(phone="+251911000025")
@@ -221,10 +275,12 @@ class TestLockerModel(TestCase):
         user2 = make_user(phone="+251911000030")
         profile2 = make_profile(user=user2, gender="female")
         locker = Locker.objects.create(locker_number=26, status="available")
+        expires_at = timezone.now() - timedelta(days=1)
         LockerAssignment.objects.create(
             member=profile1, locker=locker,
-            expires_at=timezone.now() - timedelta(seconds=1),
-            status="expired", expired_at=timezone.now(),
+            expires_at=expires_at,
+            status="expired",
+            expired_at=expires_at + timedelta(days=3),
         )
         assignment = assign_locker(member=profile2, locker_number=26)
         self.assertEqual(assignment.member, profile2)
@@ -512,14 +568,15 @@ class TestLockerAssignment(APITestCase):
         self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
         self.assertEqual(resp.data["locker_number"], 50)
 
-    def test_double_assign_rejected(self):
+    def test_member_can_transfer_locker(self):
         self.client.post(reverse("locker-assign"), {
             "member_id": self.profile.id, "locker_number": 51,
         })
         resp = self.client.post(reverse("locker-assign"), {
             "member_id": self.profile.id, "locker_number": 52,
         })
-        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(resp.data["locker_number"], 52)
 
     def test_invalid_member_rejected(self):
         resp = self.client.post(reverse("locker-assign"), {
@@ -690,13 +747,31 @@ class TestActivatePending(APITestCase):
 
     @patch("members.models.upload", return_value=CLOUDINARY_MOCK)
     @patch("barcode.writer.ImageWriter.save")
-    def test_activate_preserves_audit_trail(self, *_):
-        """WARN 4 regression — record must not be deleted."""
+    def test_activate_removes_pending_record(self, *_):
         pending = self._pending_new(phone="+251911901002")
+        pending_id = pending.pk
+        self.client.post(reverse("pending-activate", kwargs={"pk": pending_id}))
+        self.assertFalse(PendingMember.objects.filter(pk=pending_id).exists())
+
+    @patch("members.models.upload", return_value=CLOUDINARY_MOCK)
+    @patch("barcode.writer.ImageWriter.save")
+    def test_can_re_add_to_pending_after_activation(self, *_):
+        pending = self._pending_new(phone="+251911901005")
         self.client.post(reverse("pending-activate", kwargs={"pk": pending.pk}))
-        pending.refresh_from_db()
-        self.assertEqual(pending.status, "activated")
-        self.assertIsNotNone(pending.activated_at)
+        resp = self.client.post(
+            reverse("pending-new-create"),
+            {
+                "first_name": "Test", "last_name": "User",
+                "phone_number": "+251911901005", "gender": "male",
+                "package_type": "bronze", "password": "pass1234",
+            },
+        )
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+        self.assertTrue(
+            PendingMember.objects.filter(
+                phone_number="+251911901005", status="pending"
+            ).exists()
+        )
 
     @patch("members.models.upload", return_value=CLOUDINARY_MOCK)
     @patch("barcode.writer.ImageWriter.save")

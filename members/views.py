@@ -321,7 +321,7 @@ class MemberAttachImageView(generics.UpdateAPIView):
 
 
 from .serializers import LockerAssignSerializer
-from .models import Locker, LockerAssignment
+from .models import Locker, LockerAssignment, cleanup_locker_assignments
 from .serializers import LockerListSerializer
 from django.db.models import Prefetch
 
@@ -358,9 +358,7 @@ class LockerListAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        LockerAssignment.objects.filter(
-            status="active", expires_at__lte=now, member__gender=gender,
-        ).update(status="expired", expired_at=now)
+        cleanup_locker_assignments(now)
 
         lockers = Locker.objects.prefetch_related(
             Prefetch(
@@ -484,7 +482,6 @@ class ActivatePendingMemberView(APIView):
             )
 
         now = timezone.now()
-        activated_profile = None
 
         if pending.pending_type == "new":
             user = User.objects.create(
@@ -496,7 +493,7 @@ class ActivatePendingMemberView(APIView):
             user.password = pending.password
             user.save(update_fields=["password"])
 
-            activated_profile = MemberProfile.objects.create(
+            MemberProfile.objects.create(
                 user=user,
                 package_type=pending.package_type,
                 start_date=now,
@@ -510,9 +507,6 @@ class ActivatePendingMemberView(APIView):
                 user__phone_number=pending.phone_number,
             )
 
-            # Guard: do not activate while the current membership is still valid.
-            # Active members may be pre-registered in the pending list but can
-            # only be activated once their existing membership has expired.
             if member.user.is_active:
                 return Response(
                     {
@@ -531,12 +525,8 @@ class ActivatePendingMemberView(APIView):
             member.user.is_active = True
             member.user.save(update_fields=["is_active"])
             member.save(update_fields=["start_date", "end_date", "package_type", "is_renewal"])
-            activated_profile = member
 
-        pending.status = "activated"
-        pending.activated_at = now
-        pending.activated_profile = activated_profile
-        pending.save(update_fields=["status", "activated_at", "activated_profile"])
+        pending.delete()
 
         return Response({"message": "Member activated"})
 
@@ -544,7 +534,6 @@ class ActivatePendingMemberView(APIView):
 class PendingMemberListView(generics.ListAPIView):
     serializer_class = PendingMemberSerializer
     permission_classes = [IsReceptionist]
-    # No pagination — returns a plain list
     pagination_class = None
 
     def get_queryset(self):
@@ -552,10 +541,7 @@ class PendingMemberListView(generics.ListAPIView):
 
 
 class PackageTypesView(APIView):
-    """
-    Public GET endpoint that returns every available package type
-    together with its human-readable label, duration (months), and price.
-    """
+
     permission_classes = [IsReceptionist]
 
     def get(self, request):

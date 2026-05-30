@@ -1,17 +1,17 @@
 from django.core.management.base import BaseCommand
-from django.utils import timezone
-from members.models import LockerAssignment
+
+from members.models import LockerAssignment, cleanup_locker_assignments
 
 
 class Command(BaseCommand):
-    help = "Expire overdue locker assignments."
+    help = "Expire overdue locker assignments and remove cooled-down records."
 
     def handle(self, *args, **options):
-        now = timezone.now()
+        before = LockerAssignment.objects.count()
+        cleanup_locker_assignments()
+        after = LockerAssignment.objects.count()
 
-        overdue = LockerAssignment.objects.filter(
-            status="active", expires_at__lte=now
+        self.stdout.write(
+            f"Done — removed {before - after} stale assignment(s), "
+            f"{after} remaining."
         )
-        expired_count = overdue.update(status="expired", expired_at=now)
-
-        self.stdout.write(f"Done — {expired_count} assignment(s) expired.")

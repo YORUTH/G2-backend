@@ -267,16 +267,16 @@ class LockerListSerializer(serializers.ModelSerializer):
         return getattr(obj, "gender_assignments", [])
 
     def _active_assignment(self, obj):
+        now = self.context.get("now", timezone.now())
         for a in self._get_assignments(obj):
-            if a.status == "active":
+            if a.status == "active" and a.expires_at > now:
                 return a
         return None
 
     def _cooldown_assignment(self, obj):
         now = self.context.get("now", timezone.now())
-        cooldown_threshold = now - timedelta(days=3)
         for a in self._get_assignments(obj):
-            if a.status == "expired" and a.expired_at and a.expired_at > cooldown_threshold:
+            if a.status == "expired" and a.expired_at and a.expired_at > now:
                 return a
         return None
 
@@ -292,9 +292,7 @@ class LockerListSerializer(serializers.ModelSerializer):
 
     def get_cooldown_until(self, obj):
         a = self._cooldown_assignment(obj)
-        if a and a.expired_at:
-            return a.expired_at + timedelta(days=3)
-        return None
+        return a.expired_at if a else None
 
     def get_member_id(self, obj):
         a = self._active_assignment(obj)
