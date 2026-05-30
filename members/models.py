@@ -221,7 +221,7 @@ def cleanup_locker_assignments(now=None):
         status="expired",
         expired_at__lte=now,
     ).delete()
-
+# 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
 
 @transaction.atomic
 def assign_locker(*, member, locker_number):
