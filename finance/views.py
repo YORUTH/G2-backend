@@ -2,7 +2,6 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import status
 from django.utils import timezone
-from django.db.models.functions import TruncDate
 from datetime import datetime, timedelta
 import pytz
 from members.models import LockerAssignment
@@ -17,8 +16,14 @@ ADDIS_TZ = pytz.timezone("Africa/Addis_Ababa")
 
 def _parse_date_range(params):
     """
-    Returns (start_date, end_date) as aware datetimes marking Addis Ababa
-    calendar-day bounds (end is exclusive).
+    Returns (start_date, end_date) as aware datetimes in Addis Ababa time.
+    end is exclusive.
+
+    Query param combinations:
+      ?month=YYYY-MM                   → full month range
+      ?from=YYYY-MM-DD&to=YYYY-MM-DD  → full custom range (to is inclusive)
+      ?from=YYYY-MM-DD                → single day
+      (none)                          → today in Addis Ababa time
     """
     now = timezone.now()
     month = params.get("month")
@@ -57,23 +62,15 @@ def _parse_date_range(params):
     return start, end
 
 
-def _addis_day_bounds(start_dt, end_dt):
-    """Inclusive Addis calendar dates covered by [start_dt, end_dt)."""
-    start_day = start_dt.astimezone(ADDIS_TZ).date()
-    end_day = (end_dt - timedelta(microseconds=1)).astimezone(ADDIS_TZ).date()
-    return start_day, end_day
-
-
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-#  Finance Report  (existing logic untouched + temporal rows appended)
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━---━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#  Finance Report
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 class FinanceReportView(APIView):
     permission_classes = [IsReceptionist]
 
     def get(self, request):
         start_date, end_date = _parse_date_range(request.query_params)
-        start_day, end_day = _addis_day_bounds(start_date, end_date)
 
         rows = []
         active_total = 0
@@ -84,23 +81,25 @@ class FinanceReportView(APIView):
         counted_locker_ids = set()
 
         # ── Active members whose membership started in the date range ──────
+        # Skip profiles still on the pending list (payment counted below).
         active_members = MemberProfile.objects.select_related(
             "user"
         ).prefetch_related("locker_assignments").filter(
             start_date__gte=start_date,
             start_date__lt=end_date,
-        ).exclude(
-            pendingmember__status="pending",
+            pendingmember__isnull=True,
         )
 
         for m in active_members:
             is_new = not m.is_renewal
 
-            membership_day = m.start_date.astimezone(ADDIS_TZ).date()
-            same_day_assignments = (
-                LockerAssignment.objects
-                .annotate(assigned_day=TruncDate("assigned_at", tzinfo=ADDIS_TZ))
-                .filter(member=m, assigned_day=membership_day)
+            start_local = m.start_date.astimezone(ADDIS_TZ)
+            day_start = start_local.replace(hour=0, minute=0, second=0, microsecond=0)
+            day_end = day_start + timedelta(days=1)
+            same_day_assignments = LockerAssignment.objects.filter(
+                member=m,
+                assigned_at__gte=day_start,
+                assigned_at__lt=day_end,
             )
             has_locker = same_day_assignments.exists()
             if has_locker:
@@ -134,7 +133,6 @@ class FinanceReportView(APIView):
         pending_members = PendingMember.objects.filter(
             recorded_at__gte=start_date,
             recorded_at__lt=end_date,
-            status="pending",
         )
 
         for p in pending_members:
@@ -164,10 +162,9 @@ class FinanceReportView(APIView):
         standalone_lockers = (
             LockerAssignment.objects
             .select_related("member__user")
-            .annotate(assigned_day=TruncDate("assigned_at", tzinfo=ADDIS_TZ))
             .filter(
-                assigned_day__gte=start_day,
-                assigned_day__lte=end_day,
+                assigned_at__gte=start_date,
+                assigned_at__lt=end_date,
             )
             .exclude(id__in=counted_locker_ids)
         )
@@ -252,4 +249,3 @@ class TemporalMemberListCreateView(APIView):
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(serializer.data, status=status.HTTP_201_CREATED)
-
