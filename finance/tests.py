@@ -7,7 +7,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from members.models import Locker, assign_locker
-from members.tests import make_profile, make_receptionist, make_user
+from members.tests import make_manager, make_profile, make_receptionist, make_user
 
 ADDIS_TZ = pytz.timezone("Africa/Addis_Ababa")
 
@@ -45,3 +45,12 @@ class TestFinanceLockerReport(APITestCase):
         self.assertEqual(locker_rows[0]["locker_fee"], 200)
         self.assertEqual(locker_rows[0]["member_state"], "active")
         self.assertEqual(resp.data["summary"]["locker_fees_total"], 200)
+
+    def test_manager_can_access_finance_report(self):
+        manager = make_manager()
+        self.client.force_authenticate(user=manager)
+        today = timezone.now().astimezone(ADDIS_TZ).strftime("%Y-%m-%d")
+        resp = self.client.get(self.url, {"from": today, "to": today})
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertIn("rows", resp.data)
+        self.assertIn("summary", resp.data)
