@@ -28,6 +28,7 @@ from .models import (
     Locker,
     LockerAssignment,
     PendingMember,
+    PendingMemberHistory,
     PACKAGE_DURATION,
     assign_locker,
 )
@@ -752,6 +753,19 @@ class TestActivatePending(APITestCase):
         pending_id = pending.pk
         self.client.post(reverse("pending-activate", kwargs={"pk": pending_id}))
         self.assertFalse(PendingMember.objects.filter(pk=pending_id).exists())
+
+    @patch("members.models.upload", return_value=CLOUDINARY_MOCK)
+    @patch("barcode.writer.ImageWriter.save")
+    def test_activate_writes_pending_history(self, *_):
+        pending = self._pending_new(phone="+251911901006")
+        pending_recorded_at = pending.recorded_at
+        resp = self.client.post(reverse("pending-activate", kwargs={"pk": pending.pk}))
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        history = PendingMemberHistory.objects.get(phone_number="+251911901006")
+        self.assertEqual(history.pending_type, "new")
+        self.assertEqual(history.activation_mode, "delayed")
+        self.assertEqual(history.recorded_at, pending_recorded_at)
+        self.assertIsNotNone(history.activated_at)
 
     @patch("members.models.upload", return_value=CLOUDINARY_MOCK)
     @patch("barcode.writer.ImageWriter.save")

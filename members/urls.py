@@ -16,6 +16,7 @@ from .views import (
     NewPendingMemberCreateView,
     RenewalPendingMemberCreateView,
     PendingMemberListView,
+    PendingMemberHistoryListView,
     ActivatePendingMemberView,
     InstantRenewalView,
     PackageTypesView,
@@ -52,6 +53,7 @@ urlpatterns = [
 
     # PENDING MEMBERS
     path("pending/", PendingMemberListView.as_view(), name="pending-list"),
+    path("pending/history/", PendingMemberHistoryListView.as_view(), name="pending-history-list"),
     path("pending/new/", NewPendingMemberCreateView.as_view(), name="pending-new-create"),
     path("update/<int:pk>/", InstantRenewalView.as_view(), name="instant-renewal"),
     path("pending/renewal/", RenewalPendingMemberCreateView.as_view(), name="pending-renewal-create"),

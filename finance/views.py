@@ -2,6 +2,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import status
 from django.utils import timezone
+from django.db.models import Q
 from datetime import datetime, timedelta
 import pytz
 from members.models import LockerAssignment
@@ -62,9 +63,30 @@ def _parse_date_range(params):
     return start, end
 
 
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-#  Finance Report
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+def _in_addis_range(dt, start, end):
+    """True when dt falls in [start, end) interpreted in Addis Ababa time."""
+    return start <= dt.astimezone(ADDIS_TZ) < end
+
+
+def _locker_row(la):
+    user = la.member.user
+    return {
+        "first_name": user.first_name or "",
+        "last_name": user.last_name or "",
+        "status": "locker",
+        "member_state": "active",
+        "package_type": la.member.package_type or "",
+        "months": 0,
+        "base_amount": 0,
+        "card_fee": 0,
+        "locker_fee": LOCKER_FEE,
+        "total_paid": LOCKER_FEE,
+        "paid_at": la.assigned_at.astimezone(ADDIS_TZ),
+    }
+
+def _payment_date(member):
+    return member.payment_recorded_at or member.start_date
+
 
 class FinanceReportView(APIView):
     permission_classes = [IsReceptionist]
@@ -80,32 +102,37 @@ class FinanceReportView(APIView):
         temporal_total = 0
         counted_locker_ids = set()
 
-        # ── Active members whose membership started in the date range ──────
-        # Skip profiles still on the pending list (payment counted below).
+        # ── Active members whose payment falls in the date range ───────────
         active_members = MemberProfile.objects.select_related(
             "user"
         ).prefetch_related("locker_assignments").filter(
-            start_date__gte=start_date,
-            start_date__lt=end_date,
-            pendingmember__isnull=True,
+            Q(
+                payment_recorded_at__gte=start_date,
+                payment_recorded_at__lt=end_date,
+            )
+            | Q(
+                payment_recorded_at__isnull=True,
+                start_date__gte=start_date,
+                start_date__lt=end_date,
+            )
+        ).exclude(
+            pendingmember__status="pending",
         )
 
         for m in active_members:
             is_new = not m.is_renewal
+            paid_at = _payment_date(m)
 
-            start_local = m.start_date.astimezone(ADDIS_TZ)
-            day_start = start_local.replace(hour=0, minute=0, second=0, microsecond=0)
+            payment_local = paid_at.astimezone(ADDIS_TZ)
+            day_start = payment_local.replace(hour=0, minute=0, second=0, microsecond=0)
             day_end = day_start + timedelta(days=1)
-            same_day_assignments = LockerAssignment.objects.filter(
-                member=m,
-                assigned_at__gte=day_start,
-                assigned_at__lt=day_end,
-            )
-            has_locker = same_day_assignments.exists()
+            same_day_assignments = [
+                la for la in LockerAssignment.objects.filter(member=m)
+                if _in_addis_range(la.assigned_at, day_start, day_end)
+            ]
+            has_locker = bool(same_day_assignments)
             if has_locker:
-                counted_locker_ids.update(
-                    same_day_assignments.values_list("id", flat=True)
-                )
+                counted_locker_ids.update(la.id for la in same_day_assignments)
 
             base_amount, card_fee, locker_fee, total = calculate_amount(
                 m.package_type, is_new=is_new, has_locker=has_locker
@@ -122,7 +149,7 @@ class FinanceReportView(APIView):
                 "card_fee": card_fee,
                 "locker_fee": locker_fee,
                 "total_paid": total,
-                "paid_at": m.start_date.astimezone(ADDIS_TZ),
+                "paid_at": paid_at.astimezone(ADDIS_TZ),
             })
 
             active_total += total
@@ -133,6 +160,7 @@ class FinanceReportView(APIView):
         pending_members = PendingMember.objects.filter(
             recorded_at__gte=start_date,
             recorded_at__lt=end_date,
+            status="pending",
         )
 
         for p in pending_members:
@@ -158,31 +186,27 @@ class FinanceReportView(APIView):
             pending_total += total
             card_fees_total += card_fee
 
-        # ── Standalone locker assignments in the date range ───────────────
-        standalone_lockers = (
+        # Locker-only payments: any assignment on this Addis day that was not
+        # already bundled with a membership row above (works for expired members).
+        lookback = start_date - timedelta(days=1)
+        lookahead = end_date + timedelta(days=1)
+        locker_candidates = (
             LockerAssignment.objects
             .select_related("member__user")
             .filter(
-                assigned_at__gte=start_date,
-                assigned_at__lt=end_date,
+                assigned_at__gte=lookback,
+                assigned_at__lt=lookahead,
             )
-            .exclude(id__in=counted_locker_ids)
         )
 
-        for la in standalone_lockers:
-            rows.append({
-                "first_name": la.member.user.first_name,
-                "last_name": la.member.user.last_name,
-                "status": "locker",
-                "member_state": "active",
-                "package_type": la.member.package_type,
-                "months": 0,
-                "base_amount": 0,
-                "card_fee": 0,
-                "locker_fee": LOCKER_FEE,
-                "total_paid": LOCKER_FEE,
-                "paid_at": la.assigned_at.astimezone(ADDIS_TZ),
-            })
+        for la in locker_candidates:
+            if la.id in counted_locker_ids:
+                continue
+            if not _in_addis_range(la.assigned_at, start_date, end_date):
+                continue
+
+            row = _locker_row(la)
+            rows.append(row)
 
             active_total += LOCKER_FEE
             locker_fees_total += LOCKER_FEE

@@ -379,7 +379,7 @@ class LockerListAPIView(APIView):
         return Response(filtered_data, status=status.HTTP_200_OK)
 
 
-from .models import PendingMember
+from .models import PendingMember, PendingMemberHistory
 from .serializers import NewPendingMemberSerializer, RenewalPendingSerializer, PendingMemberSerializer
 from django.db import transaction
 from django.shortcuts import get_object_or_404
@@ -482,6 +482,7 @@ class ActivatePendingMemberView(APIView):
             )
 
         now = timezone.now()
+        activated_profile = None
 
         if pending.pending_type == "new":
             user = User.objects.create(
@@ -493,12 +494,13 @@ class ActivatePendingMemberView(APIView):
             user.password = pending.password
             user.save(update_fields=["password"])
 
-            MemberProfile.objects.create(
+            activated_profile = MemberProfile.objects.create(
                 user=user,
                 package_type=pending.package_type,
                 start_date=now,
                 end_date=now + timedelta(days=30 * PACKAGE_DURATION[pending.package_type]),
                 is_renewal=False,
+                payment_recorded_at=pending.recorded_at,
             )
 
         elif pending.pending_type == "renewal":
@@ -522,9 +524,30 @@ class ActivatePendingMemberView(APIView):
             member.end_date = now + timedelta(days=30 * PACKAGE_DURATION[pending.package_type])
             member.package_type = pending.package_type
             member.is_renewal = True
+            member.payment_recorded_at = pending.recorded_at
             member.user.is_active = True
             member.user.save(update_fields=["is_active"])
-            member.save(update_fields=["start_date", "end_date", "package_type", "is_renewal"])
+            member.save(update_fields=[
+                "start_date", "end_date", "package_type", "is_renewal", "payment_recorded_at",
+            ])
+            activated_profile = member
+
+        PendingMemberHistory.objects.create(
+            first_name=pending.first_name,
+            last_name=pending.last_name,
+            phone_number=pending.phone_number,
+            weight=pending.weight,
+            height=pending.height,
+            gender=pending.gender,
+            age=pending.age,
+            package_type=pending.package_type,
+            pending_type=pending.pending_type,
+            activation_mode=pending.activation_mode,
+            recorded_by=pending.recorded_by,
+            activated_profile=activated_profile,
+            recorded_at=pending.recorded_at,
+            activated_at=now,
+        )
 
         pending.delete()
 
@@ -538,6 +561,45 @@ class PendingMemberListView(generics.ListAPIView):
 
     def get_queryset(self):
         return PendingMember.objects.filter(status="pending").order_by("-recorded_at")
+
+
+class PendingMemberHistoryListView(APIView):
+    permission_classes = [IsReceptionist]
+
+    def get(self, request):
+        phone = request.query_params.get("phone_number")
+        pending_type = request.query_params.get("pending_type")
+
+        queryset = PendingMemberHistory.objects.select_related(
+            "recorded_by", "activated_profile__user"
+        ).order_by("-activated_at")
+
+        if phone:
+            queryset = queryset.filter(phone_number=phone)
+        if pending_type in ("new", "renewal"):
+            queryset = queryset.filter(pending_type=pending_type)
+
+        data = [
+            {
+                "id": row.id,
+                "first_name": row.first_name,
+                "last_name": row.last_name,
+                "phone_number": row.phone_number,
+                "pending_type": row.pending_type,
+                "activation_mode": row.activation_mode,
+                "package_type": row.package_type,
+                "recorded_at": row.recorded_at,
+                "activated_at": row.activated_at,
+                "recorded_by": (
+                    f"{row.recorded_by.first_name} {row.recorded_by.last_name}".strip()
+                    if row.recorded_by
+                    else None
+                ),
+                "activated_member_id": row.activated_profile_id,
+            }
+            for row in queryset
+        ]
+        return Response(data, status=status.HTTP_200_OK)
 
 
 class PackageTypesView(APIView):

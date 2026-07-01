@@ -56,6 +56,8 @@ class MemberProfile(models.Model):
     start_date = models.DateTimeField(default=timezone.now)
     end_date = models.DateTimeField()
     is_renewal = models.BooleanField(default=False)
+    # Null until member is activated from pending; finance falls back to start_date.
+    payment_recorded_at = models.DateTimeField(null=True, blank=True, default=None)
 
     @property
     def package_price(self):
@@ -181,8 +183,7 @@ class LockerAssignment(models.Model):
     )
     assigned_at = models.DateTimeField(default=timezone.now)
     expires_at = models.DateTimeField()
-    # Null while active. When expired, end of cooldown (expires_at + LOCKER_COOLDOWN_DAYS).
-    expired_at = models.DateTimeField(null=True, blank=True)
+    expired_at = models.DateTimeField(null=True, blank=True, default=None)
     status = models.CharField(max_length=20, choices=ASSIGNMENT_STATUS, default="active")
 
     def refresh_status(self):
@@ -205,7 +206,6 @@ def locker_cooldown_end(expires_at):
 
 
 def cleanup_locker_assignments(now=None):
-    """Expire overdue assignments and remove records whose cooldown has ended."""
     now = now or timezone.now()
     cooldown_end = ExpressionWrapper(
         F("expires_at") + timedelta(days=LOCKER_COOLDOWN_DAYS),
@@ -221,7 +221,7 @@ def cleanup_locker_assignments(now=None):
         status="expired",
         expired_at__lte=now,
     ).delete()
-# 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
+
 
 @transaction.atomic
 def assign_locker(*, member, locker_number):
@@ -339,3 +339,43 @@ class PendingMember(models.Model):
 
     def __str__(self):
         return f"{self.first_name} {self.last_name} ({self.pending_type})"
+
+
+class PendingMemberHistory(models.Model):
+    PENDING_TYPE_CHOICES = PendingMember.PENDING_TYPE_CHOICES
+    ACTIVATION_MODE_CHOICES = PendingMember.ACTIVATION_MODE_CHOICES
+
+    first_name = models.CharField(max_length=50)
+    last_name = models.CharField(max_length=50)
+    phone_number = models.CharField(max_length=20)
+    weight = models.FloatField(null=True, blank=True)
+    height = models.FloatField(null=True, blank=True)
+    gender = models.CharField(max_length=10, choices=GENDER_CHOICES)
+    age = models.IntegerField(null=True, blank=True)
+    package_type = models.CharField(max_length=20, choices=PACKAGE_CHOICES)
+    pending_type = models.CharField(max_length=10, choices=PENDING_TYPE_CHOICES)
+    activation_mode = models.CharField(max_length=10, choices=ACTIVATION_MODE_CHOICES)
+    recorded_by = models.ForeignKey(
+        User,
+        on_delete=models.PROTECT,
+        related_name="pending_history_recorded",
+    )
+    activated_profile = models.ForeignKey(
+        MemberProfile,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="pending_history",
+    )
+    recorded_at = models.DateTimeField()
+    activated_at = models.DateTimeField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-activated_at", "-recorded_at"]
+
+    def __str__(self):
+        return (
+            f"{self.first_name} {self.last_name} "
+            f"({self.pending_type}) activated {self.activated_at:%Y-%m-%d %H:%M}"
+        )
