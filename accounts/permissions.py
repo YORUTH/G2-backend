@@ -40,3 +40,15 @@ class CanViewMemberDetail(permissions.BasePermission):
         if request.user.role == "member" and obj.user == request.user:
             return True  
         return False
+class IsManagerOrReceptionist(permissions.BasePermission):
+    RECEPTIONIST_METHODS = ["GET", "POST", "PUT"]
+
+    def has_permission(self, request, view):
+        if request.method == "OPTIONS":
+            return True
+        if not request.user.is_authenticated:
+            return False
+        role = request.user.role
+        if role == "manager":
+            return True
+        return role == "receptionist" and request.method in self.RECEPTIONIST_METHODS

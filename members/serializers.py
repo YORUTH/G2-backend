@@ -64,6 +64,8 @@ class MemberCreateSerializer(serializers.ModelSerializer):
         if package_type in PACKAGE_DURATION:
             months = PACKAGE_DURATION[package_type]
             validated_data["end_date"] = start_date + timedelta(days=30 * months)
+        
+        validated_data["payment_recorded_at"] = start_date
 
         profile = MemberProfile.objects.create(user=user, **validated_data)
         return profile
@@ -93,6 +95,7 @@ class MemberReadSerializer(serializers.ModelSerializer):
     is_active = serializers.BooleanField(source="user.is_active", read_only=True)
     left_days = serializers.SerializerMethodField(read_only=True)
     package_price = serializers.IntegerField(read_only=True)
+    locker_number = serializers.SerializerMethodField()
 
     class Meta:
         model = MemberProfile
@@ -112,8 +115,10 @@ class MemberReadSerializer(serializers.ModelSerializer):
             "package_price",
             "start_date",
             "end_date",
+            "payment_recorded_at",
             "is_active",
             "left_days",
+            "locker_number",
         ]
         read_only_fields = fields
 
@@ -122,6 +127,14 @@ class MemberReadSerializer(serializers.ModelSerializer):
             delta = obj.end_date.date() - timezone.now().date()
             return max(delta.days, 0)
         return 0
+
+    def get_locker_number(self, obj):
+        active = obj.locker_assignments.filter(
+            status="active", expires_at__gt=timezone.now()
+        ).first()
+        if active:
+            return active.locker.locker_number
+        return None
 
 
 class CheckInSerializer(serializers.ModelSerializer):

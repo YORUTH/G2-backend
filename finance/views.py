@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 import pytz
 from members.models import LockerAssignment
 from members.models import MemberProfile, PendingMember, PACKAGE_DURATION
-from accounts.permissions import IsReceptionist
+from accounts.permissions import IsManagerOrReceptionist
 from .serializers import FinanceReportSerializer, TemporalMemberSerializer
 from .constants import calculate_amount, LOCKER_FEE
 from .models import TemporalMember, TEMPORAL_DAILY_FEE
@@ -89,7 +89,7 @@ def _payment_date(member):
 
 
 class FinanceReportView(APIView):
-    permission_classes = [IsReceptionist]
+    permission_classes = [IsManagerOrReceptionist]
 
     def get(self, request):
         start_date, end_date = _parse_date_range(request.query_params)
@@ -172,8 +172,9 @@ class FinanceReportView(APIView):
             rows.append({
                 "first_name": p.first_name,
                 "last_name": p.last_name,
-                "status": p.pending_type,
+                "status": "pending",
                 "member_state": "pending",
+                "pending_type": p.pending_type,
                 "package_type": p.package_type,
                 "months": PACKAGE_DURATION[p.package_type],
                 "base_amount": base_amount,
@@ -261,7 +262,7 @@ class TemporalMemberListCreateView(APIView):
     POST → record a new daily payment.  Body: { "full_name": "Abebe Kebede" }
            Amount is always 500 (auto-set).
     """
-    permission_classes = [IsReceptionist]
+    permission_classes = [IsManagerOrReceptionist]
 
     def get(self, request):
         payments = TemporalMember.objects.all()
