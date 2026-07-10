@@ -56,6 +56,10 @@ def make_receptionist(phone="+251911999001"):
     return make_user(phone=phone, role="receptionist")
 
 
+def make_manager(phone="+251911999003"):
+    return make_user(phone=phone, role="manager")
+
+
 def make_trainer(phone="+251911999002"):
     return make_user(phone=phone, role="trainer")
 
@@ -979,6 +983,18 @@ class TestPendingMemberList(APITestCase):
         resp = self.client.get(reverse("pending-list"))
         dates = [r["recorded_at"] for r in resp.data if r["phone_number"] in phones]
         self.assertEqual(dates, sorted(dates, reverse=True))
+
+    def test_manager_can_list_pending_members(self):
+        manager = make_manager()
+        self.client.force_authenticate(user=manager)
+        resp = self.client.get(reverse("pending-list"))
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+
+    def test_manager_can_list_lockers(self):
+        manager = make_manager()
+        self.client.force_authenticate(user=manager)
+        resp = self.client.get(reverse("locker-list") + "?gender=male")
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
 
 
 # ---------------------------------------------------------------------------

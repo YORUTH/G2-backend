@@ -5,15 +5,29 @@ class IsManager(permissions.BasePermission):
         return request.user.is_authenticated and request.user.role == "manager"
 
 class IsReceptionist(permissions.BasePermission):
+    """
+    Front-desk operations (finance, pending members, lockers, check-in desk).
+    Managers (gym owners) have the same access; receptionists are limited to
+    GET, POST, and PUT.
+    """
+
+    RECEPTIONIST_METHODS = ["GET", "POST", "PUT"]
 
     def has_permission(self, request, view):
         if request.method == "OPTIONS":
             return True
 
+        if not request.user.is_authenticated:
+            return False
+
+        role = request.user.role
+
+        if role == "manager":
+            return True
+
         return (
-            request.user.is_authenticated
-            and request.user.role == "receptionist"
-            and request.method in ["GET", "POST", "PUT"]
+            role == "receptionist"
+            and request.method in self.RECEPTIONIST_METHODS
         )
 
 class IsTrainer(permissions.BasePermission):
