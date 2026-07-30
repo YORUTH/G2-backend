@@ -257,7 +257,6 @@ class LockerAssignSerializer(serializers.Serializer):
 class LockerListSerializer(serializers.ModelSerializer):
     gender = serializers.SerializerMethodField()
     status = serializers.SerializerMethodField()
-    cooldown_until = serializers.SerializerMethodField()
     member_id = serializers.SerializerMethodField()
     member_name = serializers.SerializerMethodField()
     expires_at = serializers.SerializerMethodField()
@@ -269,7 +268,6 @@ class LockerListSerializer(serializers.ModelSerializer):
             "locker_number",
             "gender",
             "status",
-            "cooldown_until",
             "member_id",
             "member_name",
             "expires_at",
@@ -286,12 +284,16 @@ class LockerListSerializer(serializers.ModelSerializer):
                 return a
         return None
 
-    def _cooldown_assignment(self, obj):
-        now = self.context.get("now", timezone.now())
+    def _expired_assignment(self, obj):
+        """Return the most recent expired assignment (for display)."""
         for a in self._get_assignments(obj):
-            if a.status == "expired" and a.expired_at and a.expired_at > now:
+            if a.status == "expired":
                 return a
         return None
+
+    def _relevant_assignment(self, obj):
+        """Return active if exists, otherwise expired."""
+        return self._active_assignment(obj) or self._expired_assignment(obj)
 
     def get_gender(self, obj):
         return self.context.get("gender")
@@ -299,20 +301,16 @@ class LockerListSerializer(serializers.ModelSerializer):
     def get_status(self, obj):
         if self._active_assignment(obj):
             return "active"
-        if self._cooldown_assignment(obj):
-            return "cooldown"
+        if self._expired_assignment(obj):
+            return "expired"
         return "available"
 
-    def get_cooldown_until(self, obj):
-        a = self._cooldown_assignment(obj)
-        return a.expired_at if a else None
-
     def get_member_id(self, obj):
-        a = self._active_assignment(obj)
+        a = self._relevant_assignment(obj)
         return a.member.id if a else None
 
     def get_member_name(self, obj):
-        a = self._active_assignment(obj)
+        a = self._relevant_assignment(obj)
         if not a:
             return None
         u = a.member.user
@@ -320,7 +318,7 @@ class LockerListSerializer(serializers.ModelSerializer):
         return " ".join(parts) if parts else None
 
     def get_expires_at(self, obj):
-        a = self._active_assignment(obj)
+        a = self._relevant_assignment(obj)
         return a.expires_at if a else None
 
     def get_days_left(self, obj):

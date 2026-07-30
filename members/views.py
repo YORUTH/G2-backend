@@ -165,9 +165,8 @@ class MyProfileView(generics.RetrieveAPIView):
 
 
 class BarcodeCheckInView(APIView):
-    # FIX: no permission class was set, so global IsAuthenticated blocked
-    # scanner requests (401). Barcode check-in is a public kiosk endpoint.
-    permission_classes = [AllowAny]
+
+    permission_classes = [IsManagerOrReceptionist]
 
     def post(self, request, barcode_number):
         try:
@@ -380,15 +379,17 @@ class LockerListAPIView(APIView):
 
         cleanup_locker_assignments(now)
 
-        # For male/female tabs: only show assignments belonging to that gender.
-        # For "all" tab: show every active assignment regardless of gender.
+        # Include both active AND expired assignments so the frontend
+        # can show expired lockers with a "Re-assign" button.
         if gender == "all":
             assignment_qs = LockerAssignment.objects.filter(
-                status="active",
+                status__in=("active", "expired"),
+            ).exclude(
+                Q(member__gender__isnull=True) | Q(member__gender__exact="")
             ).select_related("member__user").order_by("-assigned_at")
         else:
             assignment_qs = LockerAssignment.objects.filter(
-                status="active",
+                status__in=("active", "expired"),
                 member__gender=gender,
             ).select_related("member__user").order_by("-assigned_at")
 
@@ -400,12 +401,75 @@ class LockerListAPIView(APIView):
             )
         ).order_by("locker_number")
 
-        serializer = LockerListSerializer(
-            lockers, many=True, context={"gender": gender, "now": now}
+        if gender == "all":
+            expanded_data = []
+            for locker in lockers:
+                assignments = getattr(locker, "gender_assignments", [])
+                if not assignments:
+                    expanded_data.append({
+                        "locker_number": locker.locker_number,
+                        "gender": "all",
+                        "status": "available",
+                        "member_id": None,
+                        "member_name": None,
+                        "expires_at": None,
+                        "days_left": None,
+                    })
+                else:
+                    for a in assignments:
+                        u = a.member.user
+                        parts = [p.strip() for p in (u.first_name or "", u.last_name or "") if p and p.strip()]
+                        name = " ".join(parts) if parts else None
+                        
+                        days_left = None
+                        if a.status == "active":
+                            delta = a.expires_at.date() - now.date()
+                            days_left = max(delta.days, 0)
+                            
+                        expanded_data.append({
+                            "locker_number": locker.locker_number,
+                            "gender": a.member.gender,
+                            "status": a.status,
+                            "member_id": a.member.id,
+                            "member_name": name,
+                            "expires_at": a.expires_at,
+                            "days_left": days_left,
+                        })
+            return Response(expanded_data, status=status.HTTP_200_OK)
+        else:
+            serializer = LockerListSerializer(
+                lockers, many=True, context={"gender": gender, "now": now}
+            )
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class ReleaseLockerAPIView(APIView):
+    """Manually release an expired locker assignment."""
+    permission_classes = [IsManagerOrReceptionist]
+
+    def post(self, request):
+        locker_number = request.data.get("locker_number")
+        if not locker_number:
+            return Response(
+                {"detail": "locker_number is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        deleted, _ = LockerAssignment.objects.filter(
+            locker__locker_number=locker_number,
+            status="expired",
+        ).delete()
+
+        if deleted == 0:
+            return Response(
+                {"detail": "No expired assignment found for this locker."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        return Response(
+            {"message": f"Locker {locker_number} released successfully."},
+            status=status.HTTP_200_OK,
         )
-        # Only return lockers that are actually occupied (active/cooldown)
-        filtered_data = [row for row in serializer.data if row.get("status") != "available"]
-        return Response(filtered_data, status=status.HTTP_200_OK)
 
 
 from .models import PendingMember, PendingMemberHistory
@@ -446,6 +510,7 @@ class RenewalPendingMemberCreateView(APIView):
             password=member.user.password,
             pending_type="renewal",
             recorded_by=request.user,
+            activated_profile=member,
         )
 
         return Response(

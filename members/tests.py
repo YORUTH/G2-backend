@@ -128,27 +128,6 @@ class TestMemberProfileModel(TestCase):
 
 class TestLockerModel(TestCase):
 
-    def test_cooldown_clears_when_expired(self):
-        locker = Locker.objects.create(
-            locker_number=1,
-            status="cooldown",
-            cooldown_until=timezone.now() - timedelta(seconds=1),
-        )
-        locker.refresh_status()
-        locker.refresh_from_db()
-        self.assertEqual(locker.status, "available")
-        self.assertIsNone(locker.cooldown_until)
-
-    def test_cooldown_stays_while_active(self):
-        locker = Locker.objects.create(
-            locker_number=2,
-            status="cooldown",
-            cooldown_until=timezone.now() + timedelta(days=2),
-        )
-        locker.refresh_status()
-        locker.refresh_from_db()
-        self.assertEqual(locker.status, "cooldown")
-
     def test_assignment_expires_on_refresh(self):
         user = make_user(phone="+251911000020")
         profile = make_profile(user=user)
@@ -158,15 +137,10 @@ class TestLockerModel(TestCase):
             member=profile,
             locker=locker,
             expires_at=expires_at,
-            expired_at=None,
         )
         assignment.refresh_status()
         assignment.refresh_from_db()
         self.assertEqual(assignment.status, "expired")
-        self.assertEqual(
-            assignment.expired_at,
-            expires_at + timedelta(days=3),
-        )
 
     def test_assign_locker_function_happy_path(self):
         user = make_user(phone="+251911000021")
@@ -191,7 +165,6 @@ class TestLockerModel(TestCase):
         )
 
     def test_can_reassign_locker_after_expiry(self):
-        from django.core.exceptions import ValidationError
         user1 = make_user(phone="+251911000031")
         profile1 = make_profile(user=user1, gender="male")
         user2 = make_user(phone="+251911000032")
@@ -211,25 +184,19 @@ class TestLockerModel(TestCase):
             ).exists()
         )
 
-    def test_assign_locker_rejects_same_gender_cooldown(self):
+    def test_assign_locker_rejects_active_same_locker(self):
         from django.core.exceptions import ValidationError
         user1 = make_user(phone="+251911000023")
         profile1 = make_profile(user=user1, gender="male")
         user2 = make_user(phone="+251911000024")
         profile2 = make_profile(user=user2, gender="male")
         locker = Locker.objects.create(locker_number=23, status="available")
-        expires_at = timezone.now() - timedelta(days=1)
-        LockerAssignment.objects.create(
-            member=profile1, locker=locker,
-            expires_at=expires_at,
-            status="expired",
-            expired_at=expires_at + timedelta(days=3),
-        )
+        assign_locker(member=profile1, locker_number=23)
         with self.assertRaises(ValidationError):
             assign_locker(member=profile2, locker_number=23)
 
-    def test_previous_owner_can_reassign_during_cooldown(self):
-        from django.core.exceptions import ValidationError
+    def test_expired_locker_can_be_reassigned_by_anyone(self):
+        """After expiry, any member can re-assign the locker (no cooldown)."""
         user1 = make_user(phone="+251911000033")
         profile1 = make_profile(user=user1, gender="male")
         user2 = make_user(phone="+251911000034")
@@ -240,55 +207,11 @@ class TestLockerModel(TestCase):
             member=profile1, locker=locker,
             expires_at=expires_at,
             status="expired",
-            expired_at=expires_at + timedelta(days=3),
         )
-        with self.assertRaises(ValidationError):
-            assign_locker(member=profile2, locker_number=28)
-        assignment = assign_locker(member=profile1, locker_number=28)
-        self.assertEqual(assignment.member, profile1)
-        self.assertEqual(assignment.status, "active")
-        self.assertIsNone(assignment.expired_at)
-
-    def test_same_locker_different_genders_allowed(self):
-        male_user = make_user(phone="+251911000025")
-        male_profile = make_profile(user=male_user, gender="male")
-        female_user = make_user(phone="+251911000026")
-        female_profile = make_profile(user=female_user, gender="female")
-        Locker.objects.create(locker_number=24, status="available")
-        assign_locker(member=male_profile, locker_number=24)
-        assign_locker(member=female_profile, locker_number=24)
-        self.assertEqual(
-            LockerAssignment.objects.filter(
-                locker__locker_number=24, status="active"
-            ).count(), 2
-        )
-
-    def test_same_locker_same_gender_rejected(self):
-        from django.core.exceptions import ValidationError
-        user1 = make_user(phone="+251911000027")
-        profile1 = make_profile(user=user1, gender="female")
-        user2 = make_user(phone="+251911000028")
-        profile2 = make_profile(user=user2, gender="female")
-        Locker.objects.create(locker_number=25, status="available")
-        assign_locker(member=profile1, locker_number=25)
-        with self.assertRaises(ValidationError):
-            assign_locker(member=profile2, locker_number=25)
-
-    def test_cooldown_opposite_gender_allowed(self):
-        user1 = make_user(phone="+251911000029")
-        profile1 = make_profile(user=user1, gender="male")
-        user2 = make_user(phone="+251911000030")
-        profile2 = make_profile(user=user2, gender="female")
-        locker = Locker.objects.create(locker_number=26, status="available")
-        expires_at = timezone.now() - timedelta(days=1)
-        LockerAssignment.objects.create(
-            member=profile1, locker=locker,
-            expires_at=expires_at,
-            status="expired",
-            expired_at=expires_at + timedelta(days=3),
-        )
-        assignment = assign_locker(member=profile2, locker_number=26)
+        # No cooldown — anyone can take it
+        assignment = assign_locker(member=profile2, locker_number=28)
         self.assertEqual(assignment.member, profile2)
+        self.assertEqual(assignment.status, "active")
 
 
 # ---------------------------------------------------------------------------

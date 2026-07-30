@@ -4,14 +4,15 @@ from members.models import LockerAssignment, cleanup_locker_assignments
 
 
 class Command(BaseCommand):
-    help = "Expire overdue locker assignments and remove cooled-down records."
+    help = "Mark overdue locker assignments as expired."
 
     def handle(self, *args, **options):
-        before = LockerAssignment.objects.count()
+        before = LockerAssignment.objects.filter(status="active").count()
         cleanup_locker_assignments()
-        after = LockerAssignment.objects.count()
+        after = LockerAssignment.objects.filter(status="active").count()
+        expired = before - after
 
         self.stdout.write(
-            f"Done — removed {before - after} stale assignment(s), "
-            f"{after} remaining."
+            f"Done — expired {expired} assignment(s), "
+            f"{after} still active."
         )

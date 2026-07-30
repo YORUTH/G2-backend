@@ -144,21 +144,12 @@ class CheckIn(models.Model):
 LOCKER_STATUS = [
     ("available", "Available"),
     ("active", "Active"),
-    ("cooldown", "Cooldown"),
 ]
 
 
 class Locker(models.Model):
     locker_number = models.PositiveIntegerField(unique=True)
     status = models.CharField(max_length=20, choices=LOCKER_STATUS, default="available")
-    cooldown_until = models.DateTimeField(null=True, blank=True)
-
-    def refresh_status(self):
-        now = timezone.now()
-        if self.status == "cooldown" and self.cooldown_until and now >= self.cooldown_until:
-            self.status = "available"
-            self.cooldown_until = None
-            self.save(update_fields=["status", "cooldown_until"])
 
     def __str__(self):
         return f"Locker {self.locker_number} ({self.status})"
@@ -183,55 +174,40 @@ class LockerAssignment(models.Model):
     )
     assigned_at = models.DateTimeField(default=timezone.now)
     expires_at = models.DateTimeField()
-    expired_at = models.DateTimeField(null=True, blank=True, default=None)
     status = models.CharField(max_length=20, choices=ASSIGNMENT_STATUS, default="active")
 
     def refresh_status(self):
         now = timezone.now()
         if self.status == "active" and now >= self.expires_at:
             self.status = "expired"
-            self.expired_at = self.expires_at + timedelta(days=LOCKER_COOLDOWN_DAYS)
-            self.save(update_fields=["status", "expired_at"])
+            self.save(update_fields=["status"])
 
     def __str__(self):
         return f"{self.member.user.first_name} → Locker {self.locker.locker_number}"
 
 
 LOCKER_DURATION_DAYS = 30
-LOCKER_COOLDOWN_DAYS = 3
-
-
-def locker_cooldown_end(expires_at):
-    return expires_at + timedelta(days=LOCKER_COOLDOWN_DAYS)
 
 
 def cleanup_locker_assignments(now=None):
+    """Mark overdue active assignments as expired."""
     now = now or timezone.now()
-    cooldown_end = ExpressionWrapper(
-        F("expires_at") + timedelta(days=LOCKER_COOLDOWN_DAYS),
-        output_field=DateTimeField(),
-    )
 
     LockerAssignment.objects.filter(
         status="active",
         expires_at__lte=now,
-    ).update(status="expired", expired_at=cooldown_end)
-
-    LockerAssignment.objects.filter(
-        status="expired",
-        expired_at__lte=now,
-    ).delete()
+    ).update(status="expired")
 
 
 @transaction.atomic
 def assign_locker(*, member, locker_number):
     now = timezone.now()
-    gender = member.gender
 
     cleanup_locker_assignments(now)
 
     member = MemberProfile.objects.select_for_update().get(pk=member.pk)
 
+    # If the member already has an active assignment, handle it
     existing = member.locker_assignments.filter(
         status="active", expires_at__gt=now,
     ).select_related("locker").first()
@@ -242,31 +218,23 @@ def assign_locker(*, member, locker_number):
 
     locker = Locker.objects.select_for_update().get(locker_number=locker_number)
 
+    gender = member.gender
+
+    # Block if there's an active (non-expired) assignment on this locker for this gender
     if LockerAssignment.objects.filter(
         locker=locker,
         status="active",
         expires_at__gt=now,
         member__gender=gender,
     ).exists():
-        raise ValidationError(
-            f"Locker is currently assigned to a {gender} member."
-        )
+        raise ValidationError(f"Locker is currently assigned to another {gender} member.")
 
-    latest_expired = LockerAssignment.objects.filter(
+    # Remove any expired assignments on this locker for this gender to free it up
+    LockerAssignment.objects.filter(
         locker=locker,
         status="expired",
         member__gender=gender,
-        expired_at__gt=now,
-    ).order_by("-expired_at").first()
-
-    if latest_expired:
-        if latest_expired.member_id == member.pk:
-            latest_expired.delete()
-        else:
-            remaining = latest_expired.expired_at - now
-            raise ValidationError(
-                f"Locker is in cooldown for {gender}s. Available in {remaining.days} day(s)."
-            )
+    ).delete()
 
     expires_at = now + timedelta(days=LOCKER_DURATION_DAYS)
     assignment = LockerAssignment.objects.create(
@@ -274,7 +242,6 @@ def assign_locker(*, member, locker_number):
         locker=locker,
         assigned_at=now,
         expires_at=expires_at,
-        expired_at=None,
     )
 
     return assignment
