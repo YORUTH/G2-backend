@@ -26,6 +26,7 @@ class MemberCreateSerializer(serializers.ModelSerializer):
     last_name = serializers.CharField(write_only=True)
     phone_number = serializers.CharField(write_only=True)
     password = serializers.CharField(write_only=True)
+    wants_boxing = serializers.BooleanField(write_only=True, required=False, default=False)
 
     class Meta:
         model = MemberProfile
@@ -40,6 +41,7 @@ class MemberCreateSerializer(serializers.ModelSerializer):
             "age",
             "package_type",
             "start_date",
+            "wants_boxing",
         ]
 
     def validate(self, attrs):
@@ -66,8 +68,16 @@ class MemberCreateSerializer(serializers.ModelSerializer):
             validated_data["end_date"] = start_date + timedelta(days=30 * months)
         
         validated_data["payment_recorded_at"] = start_date
+        
+        wants_boxing = validated_data.pop("wants_boxing", False)
 
         profile = MemberProfile.objects.create(user=user, **validated_data)
+        
+        if wants_boxing:
+            profile.has_boxing = True
+            profile.boxing_expires_at = start_date + timedelta(days=30)
+            profile.save(update_fields=["has_boxing", "boxing_expires_at"])
+            
         return profile
 
 
@@ -119,6 +129,8 @@ class MemberReadSerializer(serializers.ModelSerializer):
             "is_active",
             "left_days",
             "locker_number",
+            "has_boxing",
+            "boxing_expires_at",
         ]
         read_only_fields = fields
 
@@ -259,6 +271,7 @@ class LockerListSerializer(serializers.ModelSerializer):
     status = serializers.SerializerMethodField()
     member_id = serializers.SerializerMethodField()
     member_name = serializers.SerializerMethodField()
+    member_phone = serializers.SerializerMethodField()
     expires_at = serializers.SerializerMethodField()
     days_left = serializers.SerializerMethodField()
 
@@ -270,6 +283,7 @@ class LockerListSerializer(serializers.ModelSerializer):
             "status",
             "member_id",
             "member_name",
+            "member_phone",
             "expires_at",
             "days_left",
         ]
@@ -317,6 +331,12 @@ class LockerListSerializer(serializers.ModelSerializer):
         parts = [p.strip() for p in (u.first_name or "", u.last_name or "") if p and p.strip()]
         return " ".join(parts) if parts else None
 
+    def get_member_phone(self, obj):
+        a = self._relevant_assignment(obj)
+        if not a or not a.member or not a.member.user:
+            return None
+        return getattr(a.member.user, "phone_number", None)
+
     def get_expires_at(self, obj):
         a = self._relevant_assignment(obj)
         return a.expires_at if a else None
@@ -346,6 +366,7 @@ class NewPendingMemberSerializer(serializers.ModelSerializer):
             "gender",
             "age",
             "package_type",
+            "wants_boxing",
             "password",
         ]
 
@@ -363,6 +384,7 @@ class NewPendingMemberSerializer(serializers.ModelSerializer):
 class RenewalPendingSerializer(serializers.Serializer):
     member_id = serializers.IntegerField()
     package_type = serializers.ChoiceField(choices=PACKAGE_CHOICES)
+    wants_boxing = serializers.BooleanField(default=False)
 
     def validate_member_id(self, value):
         try:
@@ -405,6 +427,7 @@ class PendingMemberSerializer(serializers.ModelSerializer):
             "phone_number",
             "pending_type",
             "package_type",
+            "wants_boxing",
             "package_price",
             "activation_mode",
             "status",

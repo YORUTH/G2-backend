@@ -26,6 +26,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     ROLE_CHOICES = (
         ("manager", "Manager"),
         ("receptionist", "Receptionist"),
+        ("lockerreceptionist", "Locker Receptionist"),
         ("trainer", "Trainer"),
         ("member", "Member"),
     )

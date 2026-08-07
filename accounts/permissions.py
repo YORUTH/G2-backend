@@ -26,7 +26,7 @@ class IsReceptionist(permissions.BasePermission):
             return True
 
         return (
-            role == "receptionist"
+            role in ["receptionist", "lockerreceptionist"]
             and request.method in self.RECEPTIONIST_METHODS
         )
 
@@ -65,4 +65,4 @@ class IsManagerOrReceptionist(permissions.BasePermission):
         role = request.user.role
         if role == "manager":
             return True
-        return role == "receptionist" and request.method in self.RECEPTIONIST_METHODS
+        return role in ["receptionist", "lockerreceptionist"] and request.method in self.RECEPTIONIST_METHODS

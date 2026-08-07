@@ -21,6 +21,7 @@ GENDER_CHOICES = [
 
 PACKAGE_CHOICES = [
     ("bronze", "Bronze - 1 Month"),
+    ("chrome", "Chrome - 2 Months"),
     ("silver", "Silver - 3 Months"),
     ("gold", "Gold - 6 Months"),
     ("diamond", "Diamond - 12 Months"),
@@ -32,6 +33,7 @@ PACKAGE_CHOICES = [
 
 PACKAGE_DURATION = {
     "bronze": 1,
+    "chrome": 2,
     "silver": 3,
     "gold": 6,
     "diamond": 12,
@@ -56,6 +58,9 @@ class MemberProfile(models.Model):
     start_date = models.DateTimeField(default=timezone.now)
     end_date = models.DateTimeField()
     is_renewal = models.BooleanField(default=False)
+    # Boxing specific fields
+    has_boxing = models.BooleanField(default=False)
+    boxing_expires_at = models.DateTimeField(null=True, blank=True)
     # Null until member is activated from pending; finance falls back to start_date.
     payment_recorded_at = models.DateTimeField(null=True, blank=True, default=None)
 
@@ -274,6 +279,7 @@ class PendingMember(models.Model):
     package_type = models.CharField(max_length=20, choices=PACKAGE_CHOICES)
     password = models.CharField(max_length=128)
     pending_type = models.CharField(max_length=10, choices=PENDING_TYPE_CHOICES)
+    wants_boxing = models.BooleanField(default=False)
     activation_mode = models.CharField(
         max_length=10,
         choices=ACTIVATION_MODE_CHOICES,
@@ -321,6 +327,7 @@ class PendingMemberHistory(models.Model):
     age = models.IntegerField(default=0)
     package_type = models.CharField(max_length=20, choices=PACKAGE_CHOICES)
     pending_type = models.CharField(max_length=10, choices=PENDING_TYPE_CHOICES)
+    wants_boxing = models.BooleanField(default=False)
     activation_mode = models.CharField(max_length=10, choices=ACTIVATION_MODE_CHOICES)
     recorded_by = models.ForeignKey(
         User,

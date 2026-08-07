@@ -1,5 +1,6 @@
 PACKAGE_PRICES = {
     "bronze": 3000,
+    "chrome": 6000,
     "silver": 8000,
     "gold": 15000,
     "diamond": 25000,

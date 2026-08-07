@@ -10,6 +10,7 @@ class TemporalMember(models.Model):
     Only the full name is recorded.
     """
     full_name = models.CharField(max_length=100)
+    age = models.PositiveIntegerField(null=True, blank=True)
     amount = models.PositiveIntegerField(default=TEMPORAL_DAILY_FEE)
     paid_at = models.DateTimeField(default=timezone.now)
 

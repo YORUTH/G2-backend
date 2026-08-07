@@ -8,7 +8,7 @@ import pytz
 from members.models import LockerAssignment
 from members.models import MemberProfile, PendingMember, PACKAGE_DURATION
 from accounts.permissions import IsManagerOrReceptionist
-from .serializers import FinanceReportSerializer, TemporalMemberSerializer
+from .serializers import FinanceReportSerializer, TemporalMemberSerializer, LockerFinanceReportSerializer
 from .constants import calculate_amount, LOCKER_FEE
 from .models import TemporalMember, TEMPORAL_DAILY_FEE
 
@@ -80,6 +80,7 @@ def _locker_row(la):
         "base_amount": 0,
         "card_fee": 0,
         "locker_fee": LOCKER_FEE,
+        "boxing_fee": 0,
         "total_paid": LOCKER_FEE,
         "paid_at": la.assigned_at.astimezone(ADDIS_TZ),
     }
@@ -98,9 +99,8 @@ class FinanceReportView(APIView):
         active_total = 0
         pending_total = 0
         card_fees_total = 0
-        locker_fees_total = 0
+        boxing_fees_total = 0
         temporal_total = 0
-        counted_locker_ids = set()
 
         # ── Active members whose payment falls in the date range ───────────
         active_members = MemberProfile.objects.select_related(
@@ -123,19 +123,9 @@ class FinanceReportView(APIView):
             is_new = not m.is_renewal
             paid_at = _payment_date(m)
 
-            payment_local = paid_at.astimezone(ADDIS_TZ)
-            day_start = payment_local.replace(hour=0, minute=0, second=0, microsecond=0)
-            day_end = day_start + timedelta(days=1)
-            same_day_assignments = [
-                la for la in LockerAssignment.objects.filter(member=m)
-                if _in_addis_range(la.assigned_at, day_start, day_end)
-            ]
-            has_locker = bool(same_day_assignments)
-            if has_locker:
-                counted_locker_ids.update(la.id for la in same_day_assignments)
-
-            base_amount, card_fee, locker_fee, total = calculate_amount(
-                m.package_type, is_new=is_new, has_locker=has_locker
+            # Locker payments are handled entirely in the LockerFinanceReportView
+            base_amount, card_fee, locker_fee, boxing_fee, total = calculate_amount(
+                m.package_type, is_new=is_new, has_locker=False, has_boxing=m.has_boxing
             )
 
             rows.append({
@@ -143,18 +133,19 @@ class FinanceReportView(APIView):
                 "last_name": m.user.last_name,
                 "status": "new" if is_new else "renewal",
                 "member_state": "active",
-                "package_type": m.package_type,
-                "months": PACKAGE_DURATION[m.package_type],
+                "package_type": m.package_type or "",
+                "months": PACKAGE_DURATION.get(m.package_type, 0),
                 "base_amount": base_amount,
                 "card_fee": card_fee,
                 "locker_fee": locker_fee,
+                "boxing_fee": boxing_fee,
                 "total_paid": total,
                 "paid_at": paid_at.astimezone(ADDIS_TZ),
             })
 
             active_total += total
             card_fees_total += card_fee
-            locker_fees_total += locker_fee
+            boxing_fees_total += boxing_fee
 
         # ── Pending members recorded in the date range ────────────────────
         pending_members = PendingMember.objects.filter(
@@ -165,8 +156,8 @@ class FinanceReportView(APIView):
 
         for p in pending_members:
             is_new = p.pending_type == "new"
-            base_amount, card_fee, locker_fee, total = calculate_amount(
-                p.package_type, is_new=is_new, has_locker=False
+            base_amount, card_fee, locker_fee, boxing_fee, total = calculate_amount(
+                p.package_type, is_new=is_new, has_locker=False, has_boxing=p.wants_boxing
             )
 
             rows.append({
@@ -175,42 +166,21 @@ class FinanceReportView(APIView):
                 "status": "pending",
                 "member_state": "pending",
                 "pending_type": p.pending_type,
-                "package_type": p.package_type,
-                "months": PACKAGE_DURATION[p.package_type],
+                "package_type": p.package_type or "",
+                "months": PACKAGE_DURATION.get(p.package_type, 0),
                 "base_amount": base_amount,
                 "card_fee": card_fee,
                 "locker_fee": locker_fee,
+                "boxing_fee": boxing_fee,
                 "total_paid": total,
                 "paid_at": p.recorded_at.astimezone(ADDIS_TZ),
             })
 
             pending_total += total
             card_fees_total += card_fee
+            boxing_fees_total += boxing_fee
 
-        # Locker-only payments: any assignment on this Addis day that was not
-        # already bundled with a membership row above (works for expired members).
-        lookback = start_date - timedelta(days=1)
-        lookahead = end_date + timedelta(days=1)
-        locker_candidates = (
-            LockerAssignment.objects
-            .select_related("member__user")
-            .filter(
-                assigned_at__gte=lookback,
-                assigned_at__lt=lookahead,
-            )
-        )
 
-        for la in locker_candidates:
-            if la.id in counted_locker_ids:
-                continue
-            if not _in_addis_range(la.assigned_at, start_date, end_date):
-                continue
-
-            row = _locker_row(la)
-            rows.append(row)
-
-            active_total += LOCKER_FEE
-            locker_fees_total += LOCKER_FEE
 
         # ── Temporal daily payments in the date range ─────────────────────
         temporal_payments = TemporalMember.objects.filter(
@@ -221,7 +191,7 @@ class FinanceReportView(APIView):
         for t in temporal_payments:
             rows.append({
                 "first_name": t.full_name,
-                "last_name": "",
+                "last_name": f"(Age: {t.age})" if t.age else "",
                 "status": "temporal",
                 "member_state": "temporal",
                 "package_type": "daily",
@@ -229,6 +199,7 @@ class FinanceReportView(APIView):
                 "base_amount": t.amount,
                 "card_fee": 0,
                 "locker_fee": 0,
+                "boxing_fee": 0,
                 "total_paid": t.amount,
                 "paid_at": t.paid_at.astimezone(ADDIS_TZ),
             })
@@ -243,12 +214,45 @@ class FinanceReportView(APIView):
                 "pending_total": pending_total,
                 "temporal_total": temporal_total,
                 "card_fees_total": card_fees_total,
-                "locker_fees_total": locker_fees_total,
+                "locker_fees_total": 0,  # Now strictly 0 in the main report
+                "boxing_fees_total": boxing_fees_total,
                 "grand_total": grand_total,
             },
         }
 
         serializer = FinanceReportSerializer(data)
+        return Response(serializer.data)
+
+
+class LockerFinanceReportView(APIView):
+    permission_classes = [IsManagerOrReceptionist]
+
+    def get(self, request):
+        start_date, end_date = _parse_date_range(request.query_params)
+
+        rows = []
+        locker_total = 0
+
+        # All locker assignments in date range
+        locker_assignments = LockerAssignment.objects.select_related("member__user").filter(
+            assigned_at__gte=start_date,
+            assigned_at__lt=end_date,
+        )
+
+        for la in locker_assignments:
+            row = _locker_row(la)
+            rows.append(row)
+            locker_total += LOCKER_FEE
+
+        data = {
+            "rows": rows,
+            "summary": {
+                "locker_total": locker_total,
+                "grand_total": locker_total,
+            },
+        }
+
+        serializer = LockerFinanceReportSerializer(data)
         return Response(serializer.data)
 
 
