@@ -81,11 +81,6 @@ class ListMembersView(generics.ListAPIView):
     def get_queryset(self):
         now = timezone.now()
 
-        User.objects.filter(
-            profile__end_date__lt=now,
-            is_active=True
-        ).update(is_active=False)
-
         queryset = MemberProfile.objects.all()
 
         search_term = self.request.query_params.get("search", "").strip()
@@ -412,6 +407,7 @@ class LockerListAPIView(APIView):
                         "status": "available",
                         "member_id": None,
                         "member_name": None,
+                        "member_phone": None,
                         "expires_at": None,
                         "days_left": None,
                     })
@@ -432,6 +428,7 @@ class LockerListAPIView(APIView):
                             "status": a.status,
                             "member_id": a.member.id,
                             "member_name": name,
+                            "member_phone": str(u.phone_number) if u.phone_number else None,
                             "expires_at": a.expires_at,
                             "days_left": days_left,
                         })
@@ -470,6 +467,36 @@ class ReleaseLockerAPIView(APIView):
             {"message": f"Locker {locker_number} released successfully."},
             status=status.HTTP_200_OK,
         )
+
+
+class LockerMemberSearchAPIView(APIView):
+    """Lightweight endpoint for searching members when assigning lockers."""
+    permission_classes = [IsManagerOrReceptionist]
+
+    def get(self, request):
+        term = request.query_params.get("search", "").strip()
+        if not term:
+            return Response({"results": []})
+
+        terms = term.split()
+        queryset = MemberProfile.objects.select_related("user")
+
+        for t in terms:
+            queryset = queryset.filter(
+                Q(user__first_name__icontains=t) | 
+                Q(user__last_name__icontains=t)
+            )
+
+        results = []
+        for member in queryset[:20]:
+            results.append({
+                "id": member.id,
+                "first_name": member.user.first_name,
+                "last_name": member.user.last_name,
+                "phone_number": str(member.user.phone_number) if member.user.phone_number else None,
+            })
+
+        return Response({"results": results})
 
 
 from .models import PendingMember, PendingMemberHistory

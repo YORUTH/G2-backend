@@ -11,6 +11,7 @@ from cloudinary.uploader import upload
 from django.db.models import DateTimeField, ExpressionWrapper, F
 import random
 from .constants import get_package_price
+import threading
 
 ADDIS_TZ = pytz.timezone("Africa/Addis_Ababa")
 
@@ -42,6 +43,42 @@ PACKAGE_DURATION = {
     "gold_women": 6,
     "diamond_women": 12,
 }
+
+def upload_barcode_background(profile_id, barcode_str, first_name):
+    """Uploads the barcode to Cloudinary in a background thread."""
+    try:
+        EAN = barcode.get_barcode_class("code128")
+        ean = EAN(barcode_str, writer=ImageWriter())
+        buffer = BytesIO()
+        ean.write(buffer)
+        buffer.seek(0)
+        
+        upload_result = upload(
+            buffer,
+            folder="barcodes",
+            public_id=f"{first_name}_{barcode_str}",
+            overwrite=True,
+        )
+        url = upload_result.get("secure_url")
+        if url:
+            MemberProfile.objects.filter(id=profile_id).update(barcode_image=url)
+    except Exception as e:
+        print(f"Failed to upload barcode in background: {e}")
+
+def upload_profile_image_background(profile_id, first_name, user_id, file_content):
+    """Uploads the profile image to Cloudinary in a background thread."""
+    try:
+        image_upload = upload(
+            file_content,
+            folder="member_images",
+            public_id=f"{first_name}_{user_id}_profile",
+            overwrite=True,
+        )
+        url = image_upload.get("secure_url")
+        if url:
+            MemberProfile.objects.filter(id=profile_id).update(image_url=url)
+    except Exception as e:
+        print(f"Failed to upload profile image in background: {e}")
 
 
 class MemberProfile(models.Model):
@@ -96,44 +133,37 @@ class MemberProfile(models.Model):
             end_local = start_local + timedelta(days=30 * months)
             self.end_date = end_local.astimezone(pytz.UTC)
 
-        # FIX (BUG 5): track whether we just generated a new barcode so we
-        # only hit Cloudinary on first creation, not on every subsequent save.
+        # Generate barcode if new
         barcode_is_new = False
         if not self.barcode:
             self.barcode = self.generate_unique_barcode()
             barcode_is_new = True
-
-        if barcode_is_new:
-            EAN = barcode.get_barcode_class("code128")
-            ean = EAN(self.barcode, writer=ImageWriter())
-            buffer = BytesIO()
-            ean.write(buffer)
-            buffer.seek(0)
-            upload_result = upload(
-                buffer,
-                folder="barcodes",
-                public_id=f"{self.user.first_name}_{self.barcode}",
-                overwrite=True,
-            )
-            self.barcode_image = upload_result["secure_url"]
 
         if self.end_date and self.end_date < now:
             self.user.is_active = False
             self.user.save(update_fields=["is_active"])
 
         super().save(*args, **kwargs)
+        
+        # After saving to DB, trigger background uploads
+        if barcode_is_new and self.pk:
+            threading.Thread(
+                target=upload_barcode_background, 
+                args=(self.pk, self.barcode, self.user.first_name),
+                daemon=True
+            ).start()
 
-        if self.image and not str(self.image).startswith("http"):
+        if self.image and not str(self.image).startswith("http") and self.pk:
             file_obj = getattr(self.image, "file", None)
             if file_obj:
-                image_upload = upload(
-                    file_obj,
-                    folder="member_images",
-                    public_id=f"{self.user.first_name}_{self.user.id}_profile",
-                    overwrite=True,
-                )
-                self.image_url = image_upload.get("secure_url")
-                super().save(update_fields=["image_url"])
+                # Read the file content into memory so the thread can access it 
+                # after the main request closes the file pointer
+                file_content = file_obj.read()
+                threading.Thread(
+                    target=upload_profile_image_background, 
+                    args=(self.pk, self.user.first_name, self.user.id, file_content),
+                    daemon=True
+                ).start()
 
 
 class CheckIn(models.Model):

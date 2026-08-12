@@ -335,7 +335,8 @@ class LockerListSerializer(serializers.ModelSerializer):
         a = self._relevant_assignment(obj)
         if not a or not a.member or not a.member.user:
             return None
-        return getattr(a.member.user, "phone_number", None)
+        phone = getattr(a.member.user, "phone_number", None)
+        return str(phone) if phone else None
 
     def get_expires_at(self, obj):
         a = self._relevant_assignment(obj)

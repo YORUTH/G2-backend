@@ -14,6 +14,7 @@ from .views import (
     AssignLockerAPIView,
     LockerListAPIView,
     ReleaseLockerAPIView,
+    LockerMemberSearchAPIView,
     NewPendingMemberCreateView,
     RenewalPendingMemberCreateView,
     PendingMemberListView,
@@ -52,6 +53,7 @@ urlpatterns = [
     path("lockers/", LockerListAPIView.as_view(), name="locker-list"),
     path("lockers/assign/", AssignLockerAPIView.as_view(), name="locker-assign"),
     path("lockers/release/", ReleaseLockerAPIView.as_view(), name="locker-release"),
+    path("lockers/search-members/", LockerMemberSearchAPIView.as_view(), name="locker-search-members"),
 
     # PENDING MEMBERS
     path("pending/", PendingMemberListView.as_view(), name="pending-list"),
