@@ -11,6 +11,11 @@ from finance.views import get_finance_report_data, get_telegram_message_payload
 
 ADDIS_TZ = pytz.timezone("Africa/Addis_Ababa")
 
+# TODO: Add your Telegram User IDs and your managers' IDs here.
+ALLOWED_USER_IDS = [
+    # 123456789,
+]
+
 def get_report_text(from_date=None, to_date=None):
     params = {}
     if from_date:
@@ -61,6 +66,10 @@ class Command(BaseCommand):
                             
                             now_addis = timezone.now().astimezone(ADDIS_TZ)
                             
+                            if chat_id not in ALLOWED_USER_IDS:
+                                requests.get(url + "answerCallbackQuery", params={"callback_query_id": callback["id"], "text": "⛔ Unauthorized."})
+                                continue
+                            
                             if callback_data.startswith("val|"):
                                 parts = callback_data.split('|')
                                 if len(parts) == 3:
@@ -103,8 +112,12 @@ class Command(BaseCommand):
                             message = result["message"]
                             chat_id = message["chat"]["id"]
                             text = message["text"].lower().strip()
-                            
-                            if "report" in text:
+                            if chat_id not in ALLOWED_USER_IDS:
+                                unauthorized_text = f"⛔ *Unauthorized*\n\nYour Telegram ID is: `{chat_id}`\n\nPlease copy this ID and send it to the gym owner so they can grant you access."
+                                self.send_message(url, chat_id, unauthorized_text)
+                                continue
+                                
+                            if "report" in text or "/start" in text:
                                 # Send general report with inline buttons for specific date ranges
                                 report_text, ik = get_report_text()
                                 
