@@ -202,6 +202,8 @@ def get_finance_report_data(params):
         })
         temporal_total += t.amount
 
+    grand_total = active_total + pending_total + temporal_total
+
     data = {
         "rows": rows,
         "summary": {
