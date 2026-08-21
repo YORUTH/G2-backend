@@ -1,10 +1,10 @@
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
-from .models import MemberProfile, CheckIn, PACKAGE_DURATION
+from .models import MemberProfile, CheckIn, Locker, LockerAssignment, PendingMember
+from .constants import PACKAGE_DURATION, PACKAGE_CHOICES
 from django.utils import timezone
 from django.contrib.auth import get_user_model
 from datetime import timedelta
-from .models import PendingMember
 
 User = get_user_model()
 PACKAGE_CHOICES = [(key, key.capitalize()) for key in PACKAGE_DURATION.keys()]

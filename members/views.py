@@ -1,6 +1,7 @@
 from rest_framework import generics, permissions
 from rest_framework.permissions import AllowAny
-from .models import PACKAGE_DURATION, MemberProfile
+from .models import MemberProfile
+from .constants import PACKAGE_DURATION
 from .serializers import MemberCreateSerializer, TrainerUpdateSerializer, MemberReadSerializer
 from accounts.permissions import IsReceptionist, IsTrainer, IsMember, CanViewMemberDetail, CanViewMembersList
 from rest_framework.response import Response

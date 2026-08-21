@@ -28,9 +28,9 @@ from .models import (
     Locker,
     LockerAssignment,
     PendingMember,
-    PACKAGE_DURATION,
     assign_locker,
 )
+from .constants import PACKAGE_DURATION
 
 
 # ---------------------------------------------------------------------------

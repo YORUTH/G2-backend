@@ -18,19 +18,7 @@ GENDER_CHOICES = [
     ("female", "Female"),
 ]
 
-PACKAGE_CHOICES = [
-    ("bronze", "Bronze - 1 Month"),
-    ("silver", "Silver - 3 Months"),
-    ("gold", "Gold - 6 Months"),
-    ("diamond", "Diamond - 12 Months"),
-]
-
-PACKAGE_DURATION = {
-    "bronze": 1,
-    "silver": 3,
-    "gold": 6,
-    "diamond": 12,
-}
+from .constants import PACKAGE_CHOICES, PACKAGE_DURATION
 
 
 class MemberProfile(models.Model):
