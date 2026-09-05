@@ -261,20 +261,37 @@ def get_telegram_message_payload(data, start_date, end_date):
 
 def send_telegram_message(text):
     bot_token = getattr(settings, 'TELEGRAM_BOT_TOKEN', '')
-    chat_id = getattr(settings, 'TELEGRAM_CHAT_ID', '')
-    if not bot_token or not chat_id:
+    raw_chat_ids = getattr(settings, 'TELEGRAM_CHAT_IDS', getattr(settings, 'TELEGRAM_CHAT_ID', ''))
+    if not bot_token or not raw_chat_ids:
         return False
+
+    if isinstance(raw_chat_ids, str):
+        chat_ids = [cid.strip() for cid in raw_chat_ids.split(',') if cid.strip()]
+    elif isinstance(raw_chat_ids, (list, tuple)):
+        chat_ids = [str(cid).strip() for cid in raw_chat_ids if str(cid).strip()]
+    else:
+        chat_ids = []
+
+    if not chat_ids:
+        return False
+
     url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
-    payload = {
-        "chat_id": chat_id,
-        "text": text,
-        "parse_mode": "Markdown"
-    }
-    try:
-        response = requests.post(url, json=payload)
-        return response.status_code == 200
-    except Exception:
-        return False
+    success_count = 0
+    for cid in chat_ids:
+        payload = {
+            "chat_id": cid,
+            "text": text,
+            "parse_mode": "Markdown"
+        }
+        try:
+            response = requests.post(url, json=payload)
+            if response.status_code == 200:
+                success_count += 1
+        except Exception:
+            pass
+
+    return success_count > 0
+
 
 class SendTelegramReportView(APIView):
     permission_classes = [IsManagerForCustomFinance]

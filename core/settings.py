@@ -32,6 +32,11 @@ SECRET_KEY = env("SECRET_KEY")
 DEBUG = env("DEBUG")
 ALLOWED_HOSTS = ["g2-gym.onrender.com", "localhost", "127.0.0.1", "jitugym.com", "api.jitugym.com","g2-backup-1.onrender.com"]
 
+TELEGRAM_BOT_TOKEN = env("TELEGRAM_BOT_TOKEN", default="")
+TELEGRAM_CHAT_IDS = env("TELEGRAM_CHAT_IDS", default=env("TELEGRAM_CHAT_ID", default=""))
+TELEGRAM_CHAT_ID = env("TELEGRAM_CHAT_ID", default=TELEGRAM_CHAT_IDS)
+
+
 
 
 

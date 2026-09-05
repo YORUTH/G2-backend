@@ -8,16 +8,23 @@ import pytz
 import json
 from rest_framework.test import APIRequestFactory
 from finance.views import get_finance_report_data, get_telegram_message_payload
-
+import environ 
 ADDIS_TZ = pytz.timezone("Africa/Addis_Ababa")
+env = environ.Env(
+    DEBUG=(bool, False)
+)
 
-# TODO: Add your Telegram User IDs and your managers' IDs here.
-ALLOWED_USER_IDS = [
-    6919865060,
-    582808744,
-    2017897284,
+# Allowed user IDs for interactive bot commands
+def _parse_allowed_user_ids():
+    raw = env("TELEGRAM_CHAT_IDS", default=env("TELEGRAM_CHAT_ID", default=""))
+    if isinstance(raw, str):
+        return [int(x.strip()) for x in raw.split(",") if x.strip().replace("-", "").isdigit()]
+    elif isinstance(raw, (list, tuple)):
+        return [int(x) for x in raw if str(x).strip().replace("-", "").isdigit()]
+    return []
 
-]
+ALLOWED_USER_IDS = _parse_allowed_user_ids()
+
 
 def get_report_text(from_date=None, to_date=None):
     params = {}
@@ -120,7 +127,7 @@ class Command(BaseCommand):
                                 self.send_message(url, chat_id, unauthorized_text)
                                 continue
                                 
-                            if "report" in text or "/start" in text:
+                            if "report" in text or "finance" in text or "/start" in text:
                                 # Send general report with inline buttons for specific date ranges
                                 report_text, ik = get_report_text()
                                 

@@ -21,4 +21,4 @@ EXPOSE 8001
 
 ENV PORT=8001
 
-CMD ["gunicorn", "--bind", "0.0.0.0:8001", "--workers", "3", "core.wsgi:application"]
+CMD ["./entrypoint.sh"]

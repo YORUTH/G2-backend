@@ -4,6 +4,7 @@ from .views import (
     FinanceReportView,
     TemporalMemberListCreateView,
     LockerFinanceReportView,
+    SendTelegramReportView,
 )
 
 urlpatterns = [
@@ -12,4 +13,7 @@ urlpatterns = [
 
     # Temporal daily payments
     path("temporal/", TemporalMemberListCreateView.as_view(), name="temporal-list-create"),
+
+    # Telegram report
+    path("send-telegram/", SendTelegramReportView.as_view(), name="send-telegram-report"),
 ]
