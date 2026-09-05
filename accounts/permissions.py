@@ -66,3 +66,29 @@ class IsManagerOrReceptionist(permissions.BasePermission):
         if role == "manager":
             return True
         return role in ["receptionist", "lockerreceptionist"] and request.method in self.RECEPTIONIST_METHODS
+
+class IsManagerForCustomFinance(permissions.BasePermission):
+    """
+    Allows managers to access any date range.
+    Receptionists and locker receptionists can only access the current date's report.
+    """
+    message = "not allowed"
+
+    def has_permission(self, request, view):
+        if request.method == "OPTIONS":
+            return True
+        if not request.user.is_authenticated:
+            return False
+
+        params = request.query_params if request.method == "GET" else request.data
+        is_custom = bool(params.get("month") or params.get("from") or params.get("to"))
+
+        role = getattr(request.user, "role", None)
+
+        if is_custom:
+            return role == "manager"
+
+        if role == "manager":
+            return True
+
+        return role in ["receptionist", "lockerreceptionist"]

@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 import pytz
 from members.models import LockerAssignment
 from members.models import MemberProfile, PendingMember, PACKAGE_DURATION
-from accounts.permissions import IsManagerOrReceptionist
+from accounts.permissions import IsManagerOrReceptionist, IsManagerForCustomFinance
 from .serializers import FinanceReportSerializer, TemporalMemberSerializer, LockerFinanceReportSerializer
 from .constants import calculate_amount, LOCKER_FEE
 from .models import TemporalMember, TEMPORAL_DAILY_FEE
@@ -15,17 +15,18 @@ from .models import TemporalMember, TEMPORAL_DAILY_FEE
 ADDIS_TZ = pytz.timezone("Africa/Addis_Ababa")
 
 
-def _parse_date_range(params):
+def _is_custom_range(params):
+    """Return True when the request is explicitly asking for a custom
+    date range (via `month`, `from` or `to` parameters).
     """
-    Returns (start_date, end_date) as aware datetimes in Addis Ababa time.
-    end is exclusive.
+    if not params:
+        return False
+    # QueryDict / dict like
+    return bool(params.get("month") or params.get("from") or params.get("to"))
 
-    Query param combinations:
-      ?month=YYYY-MM                   → full month range
-      ?from=YYYY-MM-DD&to=YYYY-MM-DD  → full custom range (to is inclusive)
-      ?from=YYYY-MM-DD                → single day
-      (none)                          → today in Addis Ababa time
-    """
+
+def _parse_date_range(params):
+
     now = timezone.now()
     month = params.get("month")
     date_from = params.get("from")
@@ -219,7 +220,7 @@ def get_finance_report_data(params):
     return data, start_date, end_date
 
 class FinanceReportView(APIView):
-    permission_classes = [IsManagerOrReceptionist]
+    permission_classes = [IsManagerForCustomFinance]
 
     def get(self, request):
         data, _, _ = get_finance_report_data(request.query_params)
@@ -276,7 +277,7 @@ def send_telegram_message(text):
         return False
 
 class SendTelegramReportView(APIView):
-    permission_classes = [IsManagerOrReceptionist]
+    permission_classes = [IsManagerForCustomFinance]
 
     def post(self, request):
         data, start_date, end_date = get_finance_report_data(request.data)
@@ -293,7 +294,7 @@ class SendTelegramReportView(APIView):
 
 
 class LockerFinanceReportView(APIView):
-    permission_classes = [IsManagerOrReceptionist]
+    permission_classes = [IsManagerForCustomFinance]
 
     def get(self, request):
         start_date, end_date = _parse_date_range(request.query_params)
