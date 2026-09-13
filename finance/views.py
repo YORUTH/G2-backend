@@ -11,6 +11,7 @@ from accounts.permissions import IsManagerOrReceptionist, IsManagerForCustomFina
 from .serializers import FinanceReportSerializer, TemporalMemberSerializer, LockerFinanceReportSerializer
 from .constants import calculate_amount, LOCKER_FEE
 from .models import TemporalMember, TEMPORAL_DAILY_FEE
+from .generate_pdf import generate_finance_pdf
 
 ADDIS_TZ = pytz.timezone("Africa/Addis_Ababa")
 
@@ -259,20 +260,20 @@ def get_telegram_message_payload(data, start_date, end_date):
     ]
     return text, inline_keyboard
 
+def _get_chat_ids():
+    """Parse configured Telegram chat IDs from settings."""
+    raw_chat_ids = getattr(settings, 'TELEGRAM_CHAT_IDS', getattr(settings, 'TELEGRAM_CHAT_ID', ''))
+    if isinstance(raw_chat_ids, str):
+        return [cid.strip() for cid in raw_chat_ids.split(',') if cid.strip()]
+    elif isinstance(raw_chat_ids, (list, tuple)):
+        return [str(cid).strip() for cid in raw_chat_ids if str(cid).strip()]
+    return []
+
+
 def send_telegram_message(text):
     bot_token = getattr(settings, 'TELEGRAM_BOT_TOKEN', '')
-    raw_chat_ids = getattr(settings, 'TELEGRAM_CHAT_IDS', getattr(settings, 'TELEGRAM_CHAT_ID', ''))
-    if not bot_token or not raw_chat_ids:
-        return False
-
-    if isinstance(raw_chat_ids, str):
-        chat_ids = [cid.strip() for cid in raw_chat_ids.split(',') if cid.strip()]
-    elif isinstance(raw_chat_ids, (list, tuple)):
-        chat_ids = [str(cid).strip() for cid in raw_chat_ids if str(cid).strip()]
-    else:
-        chat_ids = []
-
-    if not chat_ids:
+    chat_ids = _get_chat_ids()
+    if not bot_token or not chat_ids:
         return False
 
     url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
@@ -293,6 +294,32 @@ def send_telegram_message(text):
     return success_count > 0
 
 
+def send_telegram_document(file_buffer, filename, caption=None):
+    """Send a PDF document to all configured Telegram chat IDs."""
+    bot_token = getattr(settings, 'TELEGRAM_BOT_TOKEN', '')
+    chat_ids = _get_chat_ids()
+    if not bot_token or not chat_ids:
+        return False
+
+    url = f"https://api.telegram.org/bot{bot_token}/sendDocument"
+    success_count = 0
+    for cid in chat_ids:
+        file_buffer.seek(0)
+        data = {"chat_id": cid}
+        if caption:
+            data["caption"] = caption
+            data["parse_mode"] = "Markdown"
+        files = {"document": (filename, file_buffer, "application/pdf")}
+        try:
+            response = requests.post(url, data=data, files=files)
+            if response.status_code == 200:
+                success_count += 1
+        except Exception:
+            pass
+
+    return success_count > 0
+
+
 class SendTelegramReportView(APIView):
     permission_classes = [IsManagerForCustomFinance]
 
@@ -304,7 +331,26 @@ class SendTelegramReportView(APIView):
         username = request.user.first_name or request.user.username
         text += f"\n\n_Sent by {username} from Dashboard_"
         
-        if send_telegram_message(text):
+        msg_ok = send_telegram_message(text)
+
+        # Generate and send the PDF with the same date range
+        from_str = start_date.strftime("%Y-%m-%d")
+        to_str = (end_date - timedelta(days=1)).strftime("%Y-%m-%d")
+        pdf_buf = generate_finance_pdf(
+            rows=data["rows"],
+            summary=data["summary"],
+            from_date_str=from_str,
+            to_date_str=to_str,
+        )
+        is_today = from_str == to_str
+        filename = (
+            f"Jitu_Finance_Report_{from_str}.pdf"
+            if is_today
+            else f"Jitu_Finance_Report_{from_str}_to_{to_str}.pdf"
+        )
+        doc_ok = send_telegram_document(pdf_buf, filename, caption="📎 Full PDF Report")
+
+        if msg_ok or doc_ok:
             return Response({"success": True, "message": "Message sent successfully!"})
             
         return Response({"success": False, "error": "Failed to send telegram message."}, status=500)

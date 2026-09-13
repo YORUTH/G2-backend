@@ -8,6 +8,7 @@ import pytz
 import json
 from rest_framework.test import APIRequestFactory
 from finance.views import get_finance_report_data, get_telegram_message_payload
+from finance.generate_pdf import generate_finance_pdf
 import environ 
 ADDIS_TZ = pytz.timezone("Africa/Addis_Ababa")
 env = environ.Env(
@@ -26,7 +27,13 @@ def _parse_allowed_user_ids():
 ALLOWED_USER_IDS = _parse_allowed_user_ids()
 
 
-def get_report_text(from_date=None, to_date=None):
+def get_report_with_pdf(from_date=None, to_date=None):
+    """
+    Fetch report data, build the Telegram text message and inline keyboard,
+    and generate a PDF buffer — all from the same date range.
+
+    Returns (text, inline_keyboard, pdf_buffer, pdf_filename).
+    """
     params = {}
     if from_date:
         params['from'] = from_date
@@ -35,8 +42,27 @@ def get_report_text(from_date=None, to_date=None):
         
     data, start_dt_obj, end_dt_obj = get_finance_report_data(params)
     text, inline_keyboard = get_telegram_message_payload(data, start_dt_obj, end_dt_obj)
-    
-    return text, inline_keyboard
+
+    # Derive the same date strings used in the text header for the PDF
+    from_str = start_dt_obj.strftime("%Y-%m-%d")
+    to_str = (end_dt_obj - timedelta(days=1)).strftime("%Y-%m-%d")
+
+    pdf_buf = generate_finance_pdf(
+        rows=data["rows"],
+        summary=data["summary"],
+        from_date_str=from_str,
+        to_date_str=to_str,
+    )
+
+    is_today = from_str == to_str
+    filename = (
+        f"Jitu_Finance_Report_{from_str}.pdf"
+        if is_today
+        else f"Jitu_Finance_Report_{from_str}_to_{to_str}.pdf"
+    )
+
+    return text, inline_keyboard, pdf_buf, filename
+
 
 class Command(BaseCommand):
     help = "Run the Telegram Bot for Finance Reports"
@@ -100,18 +126,21 @@ class Command(BaseCommand):
                                 continue
                             
                             if callback_data == "report_today":
-                                text, ik = get_report_text()
+                                text, ik, pdf_buf, pdf_name = get_report_with_pdf()
                                 self.send_message(url, chat_id, text, reply_markup={"inline_keyboard": ik})
+                                self.send_document(url, chat_id, pdf_buf, pdf_name)
                             elif callback_data == "report_week":
                                 from_date = (now_addis - timedelta(days=7)).strftime("%Y-%m-%d")
                                 to_date = now_addis.strftime("%Y-%m-%d")
-                                text, ik = get_report_text(from_date, to_date)
+                                text, ik, pdf_buf, pdf_name = get_report_with_pdf(from_date, to_date)
                                 self.send_message(url, chat_id, text, reply_markup={"inline_keyboard": ik})
+                                self.send_document(url, chat_id, pdf_buf, pdf_name)
                             elif callback_data == "report_month":
                                 from_date = (now_addis - timedelta(days=30)).strftime("%Y-%m-%d")
                                 to_date = now_addis.strftime("%Y-%m-%d")
-                                text, ik = get_report_text(from_date, to_date)
+                                text, ik, pdf_buf, pdf_name = get_report_with_pdf(from_date, to_date)
                                 self.send_message(url, chat_id, text, reply_markup={"inline_keyboard": ik})
+                                self.send_document(url, chat_id, pdf_buf, pdf_name)
                             
                             # Answer callback query to remove loading state
                             requests.get(url + "answerCallbackQuery", params={"callback_query_id": callback["id"]})
@@ -129,7 +158,7 @@ class Command(BaseCommand):
                                 
                             if "report" in text or "finance" in text or "/start" in text:
                                 # Send general report with inline buttons for specific date ranges
-                                report_text, ik = get_report_text()
+                                report_text, ik, pdf_buf, pdf_name = get_report_with_pdf()
                                 
                                 # We add the generic date filter buttons at the bottom of the keyboard
                                 ik.append([
@@ -142,6 +171,7 @@ class Command(BaseCommand):
                                 }
                                 
                                 self.send_message(url, chat_id, report_text, reply_markup=reply_markup)
+                                self.send_document(url, chat_id, pdf_buf, pdf_name)
                                 
             except Exception as e:
                 self.stdout.write(self.style.ERROR(f"Error fetching updates: {e}"))
@@ -159,3 +189,16 @@ class Command(BaseCommand):
             payload["reply_markup"] = json.dumps(reply_markup)
             
         requests.post(base_url + "sendMessage", data=payload)
+
+    def send_document(self, base_url, chat_id, file_buffer, filename, caption=None):
+        """Send a PDF document to a specific chat via Telegram Bot API."""
+        file_buffer.seek(0)
+        data = {"chat_id": chat_id}
+        if caption:
+            data["caption"] = caption
+            data["parse_mode"] = "Markdown"
+        files = {"document": (filename, file_buffer, "application/pdf")}
+        try:
+            requests.post(base_url + "sendDocument", data=data, files=files)
+        except Exception as e:
+            self.stdout.write(self.style.ERROR(f"Error sending document: {e}"))
