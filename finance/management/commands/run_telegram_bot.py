@@ -1,4 +1,5 @@
 import time
+import traceback
 import requests
 from django.core.management.base import BaseCommand
 from django.conf import settings
@@ -92,92 +93,106 @@ class Command(BaseCommand):
                     for result in data.get("result", []):
                         offset = result["update_id"] + 1
                         
-                        # Handle callback queries from inline buttons
-                        if "callback_query" in result:
-                            callback = result["callback_query"]
-                            chat_id = callback["message"]["chat"]["id"]
-                            callback_data = callback["data"]
-                            
-                            self.stdout.write(f"Received callback: {callback_data}")
-                            
-                            now_addis = timezone.now().astimezone(ADDIS_TZ)
-                            
-                            if chat_id not in ALLOWED_USER_IDS:
-                                requests.get(url + "answerCallbackQuery", params={"callback_query_id": callback["id"], "text": "⛔ Unauthorized."})
-                                continue
-                            
-                            if callback_data.startswith("val|"):
-                                parts = callback_data.split('|')
-                                if len(parts) == 3:
-                                    _, label, val = parts
-                                    # Format value
-                                    try:
-                                        val_formatted = f"{int(float(val)):,} Birr"
-                                    except ValueError:
-                                        val_formatted = f"{val} Birr"
-                                        
-                                    text_msg = f"💵 {label}:\n{val_formatted}"
-                                    
-                                    # Answer callback quickly to stop loading
-                                    requests.get(url + "answerCallbackQuery", params={"callback_query_id": callback["id"]})
-                                    
-                                    # Send as a new text message
-                                    self.send_message(url, chat_id, text_msg)
-                                continue
-                            
-                            if callback_data == "report_today":
-                                text, ik, pdf_buf, pdf_name = get_report_with_pdf()
-                                self.send_message(url, chat_id, text, reply_markup={"inline_keyboard": ik})
-                                self.send_document(url, chat_id, pdf_buf, pdf_name)
-                            elif callback_data == "report_week":
-                                from_date = (now_addis - timedelta(days=7)).strftime("%Y-%m-%d")
-                                to_date = now_addis.strftime("%Y-%m-%d")
-                                text, ik, pdf_buf, pdf_name = get_report_with_pdf(from_date, to_date)
-                                self.send_message(url, chat_id, text, reply_markup={"inline_keyboard": ik})
-                                self.send_document(url, chat_id, pdf_buf, pdf_name)
-                            elif callback_data == "report_month":
-                                from_date = (now_addis - timedelta(days=30)).strftime("%Y-%m-%d")
-                                to_date = now_addis.strftime("%Y-%m-%d")
-                                text, ik, pdf_buf, pdf_name = get_report_with_pdf(from_date, to_date)
-                                self.send_message(url, chat_id, text, reply_markup={"inline_keyboard": ik})
-                                self.send_document(url, chat_id, pdf_buf, pdf_name)
-                            
-                            # Answer callback query to remove loading state
-                            requests.get(url + "answerCallbackQuery", params={"callback_query_id": callback["id"]})
-                            continue
-
-                        # Handle text messages
-                        if "message" in result and "text" in result["message"]:
-                            message = result["message"]
-                            chat_id = message["chat"]["id"]
-                            text = message["text"].lower().strip()
-                            if chat_id not in ALLOWED_USER_IDS:
-                                unauthorized_text = f"⛔ *Unauthorized*\n\nYour Telegram ID is: `{chat_id}`\n\nPlease copy this ID and send it to the gym owner so they can grant you access."
-                                self.send_message(url, chat_id, unauthorized_text)
-                                continue
-                                
-                            if "report" in text or "finance" in text or "/start" in text:
-                                # Send general report with inline buttons for specific date ranges
-                                report_text, ik, pdf_buf, pdf_name = get_report_with_pdf()
-                                
-                                # We add the generic date filter buttons at the bottom of the keyboard
-                                ik.append([
-                                    {"text": "📅 Last 7 Days", "callback_data": "report_week"},
-                                    {"text": "📅 Last 30 Days", "callback_data": "report_month"}
-                                ])
-                                
-                                reply_markup = {
-                                    "inline_keyboard": ik
-                                }
-                                
-                                self.send_message(url, chat_id, report_text, reply_markup=reply_markup)
-                                self.send_document(url, chat_id, pdf_buf, pdf_name)
+                        try:
+                            self._process_update(result, url)
+                        except Exception as e:
+                            self.stdout.write(self.style.ERROR(
+                                f"Error processing update {result.get('update_id')}: {e}\n{traceback.format_exc()}"
+                            ))
                                 
             except Exception as e:
-                self.stdout.write(self.style.ERROR(f"Error fetching updates: {e}"))
+                self.stdout.write(self.style.ERROR(f"Error fetching updates: {e}\n{traceback.format_exc()}"))
                 time.sleep(5)
                 
             time.sleep(1)
+
+    def _process_update(self, result, url):
+        """Process a single Telegram update. Exceptions here are caught per-update."""
+        # Handle callback queries from inline buttons
+        if "callback_query" in result:
+            callback = result["callback_query"]
+            chat_id = callback["message"]["chat"]["id"]
+            callback_data = callback["data"]
+            
+            self.stdout.write(f"Received callback: {callback_data}")
+            
+            now_addis = timezone.now().astimezone(ADDIS_TZ)
+            
+            if chat_id not in ALLOWED_USER_IDS:
+                requests.get(url + "answerCallbackQuery", params={"callback_query_id": callback["id"], "text": "⛔ Unauthorized."})
+                return
+            
+            if callback_data.startswith("val|"):
+                parts = callback_data.split('|')
+                if len(parts) == 3:
+                    _, label, val = parts
+                    # Format value
+                    try:
+                        val_formatted = f"{int(float(val)):,} Birr"
+                    except ValueError:
+                        val_formatted = f"{val} Birr"
+                        
+                    text_msg = f"💵 {label}:\n{val_formatted}"
+                    
+                    # Answer callback quickly to stop loading
+                    requests.get(url + "answerCallbackQuery", params={"callback_query_id": callback["id"]})
+                    
+                    # Send as a new text message
+                    self.send_message(url, chat_id, text_msg)
+                return
+            
+            if callback_data == "report_today":
+                text, ik, pdf_buf, pdf_name = get_report_with_pdf()
+                self.send_message(url, chat_id, text, reply_markup={"inline_keyboard": ik})
+                self.send_document(url, chat_id, pdf_buf, pdf_name)
+            elif callback_data == "report_week":
+                from_date = (now_addis - timedelta(days=7)).strftime("%Y-%m-%d")
+                to_date = now_addis.strftime("%Y-%m-%d")
+                text, ik, pdf_buf, pdf_name = get_report_with_pdf(from_date, to_date)
+                self.send_message(url, chat_id, text, reply_markup={"inline_keyboard": ik})
+                self.send_document(url, chat_id, pdf_buf, pdf_name)
+            elif callback_data == "report_month":
+                from_date = (now_addis - timedelta(days=30)).strftime("%Y-%m-%d")
+                to_date = now_addis.strftime("%Y-%m-%d")
+                text, ik, pdf_buf, pdf_name = get_report_with_pdf(from_date, to_date)
+                self.send_message(url, chat_id, text, reply_markup={"inline_keyboard": ik})
+                self.send_document(url, chat_id, pdf_buf, pdf_name)
+            
+            # Answer callback query to remove loading state
+            requests.get(url + "answerCallbackQuery", params={"callback_query_id": callback["id"]})
+            return
+
+        # Handle text messages
+        if "message" in result and "text" in result["message"]:
+            message = result["message"]
+            chat_id = message["chat"]["id"]
+            user_text = message["text"].lower().strip()
+
+            self.stdout.write(f"Received message from {chat_id}: {user_text!r}")
+
+            if chat_id not in ALLOWED_USER_IDS:
+                unauthorized_text = f"⛔ *Unauthorized*\n\nYour Telegram ID is: `{chat_id}`\n\nPlease copy this ID and send it to the gym owner so they can grant you access."
+                self.send_message(url, chat_id, unauthorized_text)
+                return
+                
+            if "report" in user_text or "finance" in user_text or "/start" in user_text:
+                self.stdout.write(f"Generating finance report for chat {chat_id}...")
+                # Send general report with inline buttons for specific date ranges
+                report_text, ik, pdf_buf, pdf_name = get_report_with_pdf()
+                
+                # We add the generic date filter buttons at the bottom of the keyboard
+                ik.append([
+                    {"text": "📅 Last 7 Days", "callback_data": "report_week"},
+                    {"text": "📅 Last 30 Days", "callback_data": "report_month"}
+                ])
+                
+                reply_markup = {
+                    "inline_keyboard": ik
+                }
+                
+                self.send_message(url, chat_id, report_text, reply_markup=reply_markup)
+                self.send_document(url, chat_id, pdf_buf, pdf_name)
+                self.stdout.write(self.style.SUCCESS(f"Finance report sent to chat {chat_id}"))
 
     def send_message(self, base_url, chat_id, text, reply_markup=None):
         payload = {
@@ -187,8 +202,19 @@ class Command(BaseCommand):
         }
         if reply_markup:
             payload["reply_markup"] = json.dumps(reply_markup)
-            
-        requests.post(base_url + "sendMessage", data=payload)
+        
+        resp = requests.post(base_url + "sendMessage", data=payload)
+        if resp.status_code != 200:
+            self.stdout.write(self.style.ERROR(
+                f"sendMessage failed ({resp.status_code}): {resp.text}"
+            ))
+            # Retry without parse_mode in case Markdown is the issue
+            payload.pop("parse_mode", None)
+            retry = requests.post(base_url + "sendMessage", data=payload)
+            if retry.status_code != 200:
+                self.stdout.write(self.style.ERROR(
+                    f"sendMessage retry also failed ({retry.status_code}): {retry.text}"
+                ))
 
     def send_document(self, base_url, chat_id, file_buffer, filename, caption=None):
         """Send a PDF document to a specific chat via Telegram Bot API."""
@@ -199,6 +225,10 @@ class Command(BaseCommand):
             data["parse_mode"] = "Markdown"
         files = {"document": (filename, file_buffer, "application/pdf")}
         try:
-            requests.post(base_url + "sendDocument", data=data, files=files)
+            resp = requests.post(base_url + "sendDocument", data=data, files=files)
+            if resp.status_code != 200:
+                self.stdout.write(self.style.ERROR(
+                    f"sendDocument failed ({resp.status_code}): {resp.text}"
+                ))
         except Exception as e:
             self.stdout.write(self.style.ERROR(f"Error sending document: {e}"))
