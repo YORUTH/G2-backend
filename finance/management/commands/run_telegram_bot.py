@@ -3,6 +3,7 @@ import traceback
 import requests
 from django.core.management.base import BaseCommand
 from django.conf import settings
+from django.db import close_old_connections
 from django.utils import timezone
 from datetime import datetime, timedelta
 import pytz
@@ -27,6 +28,16 @@ def _parse_allowed_user_ids():
 
 ALLOWED_USER_IDS = _parse_allowed_user_ids()
 
+# ── Persistent reply keyboard shown at the bottom of the chat ─────────
+MAIN_KEYBOARD = {
+    "keyboard": [
+        [{"text": "📊 Finance Report"}],
+        [{"text": "📅 Last 7 Days"}, {"text": "📅 Last 30 Days"}],
+    ],
+    "resize_keyboard": True,
+    "one_time_keyboard": False,
+}
+
 
 def get_report_with_pdf(from_date=None, to_date=None):
     """
@@ -40,8 +51,17 @@ def get_report_with_pdf(from_date=None, to_date=None):
         params['from'] = from_date
     if to_date:
         params['to'] = to_date
-        
-    data, start_dt_obj, end_dt_obj = get_finance_report_data(params)
+
+    # Close stale DB connections before querying — prevents
+    # "connection already closed" crashes in long-running bots.
+    close_old_connections()
+
+    try:
+        data, start_dt_obj, end_dt_obj = get_finance_report_data(params)
+    except Exception:
+        # If the connection was already dead, close it and retry once.
+        close_old_connections()
+        data, start_dt_obj, end_dt_obj = get_finance_report_data(params)
     text, inline_keyboard = get_telegram_message_payload(data, start_dt_obj, end_dt_obj)
 
     # Derive the same date strings used in the text header for the PDF
@@ -68,6 +88,11 @@ def get_report_with_pdf(from_date=None, to_date=None):
 class Command(BaseCommand):
     help = "Run the Telegram Bot for Finance Reports"
 
+    # ── Backoff configuration ─────────────────────────────────────────
+    INITIAL_BACKOFF = 5       # seconds
+    MAX_BACKOFF = 60          # cap
+    BACKOFF_MULTIPLIER = 2
+
     def handle(self, *args, **options):
         bot_token = getattr(settings, 'TELEGRAM_BOT_TOKEN', '')
         if not bot_token:
@@ -76,6 +101,7 @@ class Command(BaseCommand):
 
         url = f"https://api.telegram.org/bot{bot_token}/"
         offset = None
+        backoff = self.INITIAL_BACKOFF
 
         self.stdout.write(self.style.SUCCESS("Telegram bot started. Waiting for messages..."))
         
@@ -99,11 +125,38 @@ class Command(BaseCommand):
                             self.stdout.write(self.style.ERROR(
                                 f"Error processing update {result.get('update_id')}: {e}\n{traceback.format_exc()}"
                             ))
-                                
+                else:
+                    self.stdout.write(self.style.WARNING(
+                        f"getUpdates returned HTTP {response.status_code} — retrying in {backoff}s"
+                    ))
+                    time.sleep(backoff)
+                    backoff = min(backoff * self.BACKOFF_MULTIPLIER, self.MAX_BACKOFF)
+                    continue
+
+                # Success — reset backoff
+                backoff = self.INITIAL_BACKOFF
+                        
+            except requests.exceptions.ConnectionError as e:
+                self.stdout.write(self.style.ERROR(
+                    f"Connection error (retrying in {backoff}s): {e}"
+                ))
+                time.sleep(backoff)
+                backoff = min(backoff * self.BACKOFF_MULTIPLIER, self.MAX_BACKOFF)
+
+            except requests.exceptions.Timeout as e:
+                self.stdout.write(self.style.ERROR(
+                    f"Request timed out (retrying in {backoff}s): {e}"
+                ))
+                time.sleep(backoff)
+                backoff = min(backoff * self.BACKOFF_MULTIPLIER, self.MAX_BACKOFF)
+
             except Exception as e:
-                self.stdout.write(self.style.ERROR(f"Error fetching updates: {e}\n{traceback.format_exc()}"))
-                time.sleep(5)
-                
+                self.stdout.write(self.style.ERROR(
+                    f"Unexpected error (retrying in {backoff}s): {e}\n{traceback.format_exc()}"
+                ))
+                time.sleep(backoff)
+                backoff = min(backoff * self.BACKOFF_MULTIPLIER, self.MAX_BACKOFF)
+
             time.sleep(1)
 
     def _process_update(self, result, url):
@@ -162,20 +215,46 @@ class Command(BaseCommand):
             requests.get(url + "answerCallbackQuery", params={"callback_query_id": callback["id"]})
             return
 
-        # Handle text messages
+        # Handle text messages (including button taps)
         if "message" in result and "text" in result["message"]:
             message = result["message"]
             chat_id = message["chat"]["id"]
-            user_text = message["text"].lower().strip()
+            user_text = message["text"].strip()
+            user_text_lower = user_text.lower()
 
             self.stdout.write(f"Received message from {chat_id}: {user_text!r}")
 
             if chat_id not in ALLOWED_USER_IDS:
                 unauthorized_text = f"⛔ *Unauthorized*\n\nYour Telegram ID is: `{chat_id}`\n\nPlease copy this ID and send it to the gym owner so they can grant you access."
-                self.send_message(url, chat_id, unauthorized_text)
+                self.send_message(url, chat_id, unauthorized_text, reply_markup=MAIN_KEYBOARD)
                 return
-                
-            if "report" in user_text or "finance" in user_text or "/start" in user_text:
+
+            # ── Button: "📅 Last 7 Days" ──────────────────────────────
+            if user_text == "📅 Last 7 Days":
+                now_addis = timezone.now().astimezone(ADDIS_TZ)
+                from_date = (now_addis - timedelta(days=7)).strftime("%Y-%m-%d")
+                to_date = now_addis.strftime("%Y-%m-%d")
+                self.stdout.write(f"Generating 7-day report for chat {chat_id}...")
+                text, ik, pdf_buf, pdf_name = get_report_with_pdf(from_date, to_date)
+                self.send_message(url, chat_id, text, reply_markup={"inline_keyboard": ik})
+                self.send_document(url, chat_id, pdf_buf, pdf_name)
+                self.stdout.write(self.style.SUCCESS(f"7-day report sent to chat {chat_id}"))
+                return
+
+            # ── Button: "📅 Last 30 Days" ─────────────────────────────
+            if user_text == "📅 Last 30 Days":
+                now_addis = timezone.now().astimezone(ADDIS_TZ)
+                from_date = (now_addis - timedelta(days=30)).strftime("%Y-%m-%d")
+                to_date = now_addis.strftime("%Y-%m-%d")
+                self.stdout.write(f"Generating 30-day report for chat {chat_id}...")
+                text, ik, pdf_buf, pdf_name = get_report_with_pdf(from_date, to_date)
+                self.send_message(url, chat_id, text, reply_markup={"inline_keyboard": ik})
+                self.send_document(url, chat_id, pdf_buf, pdf_name)
+                self.stdout.write(self.style.SUCCESS(f"30-day report sent to chat {chat_id}"))
+                return
+
+            # ── Button: "📊 Finance Report" / typed: report, finance, /start ──
+            if user_text == "📊 Finance Report" or "report" in user_text_lower or "finance" in user_text_lower or "/start" in user_text_lower:
                 self.stdout.write(f"Generating finance report for chat {chat_id}...")
                 # Send general report with inline buttons for specific date ranges
                 report_text, ik, pdf_buf, pdf_name = get_report_with_pdf()
@@ -192,6 +271,9 @@ class Command(BaseCommand):
                 
                 self.send_message(url, chat_id, report_text, reply_markup=reply_markup)
                 self.send_document(url, chat_id, pdf_buf, pdf_name)
+
+                # Also send/refresh the persistent keyboard so buttons always stay visible
+                self.send_message(url, chat_id, "⬇️ Use the buttons below anytime:", reply_markup=MAIN_KEYBOARD)
                 self.stdout.write(self.style.SUCCESS(f"Finance report sent to chat {chat_id}"))
 
     def send_message(self, base_url, chat_id, text, reply_markup=None):

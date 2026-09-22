@@ -14,3 +14,5 @@ media/
 
 .vscode/
 .idea/
+.expo
+exports/
