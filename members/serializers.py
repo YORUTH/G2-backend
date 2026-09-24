@@ -47,9 +47,11 @@ class MemberCreateSerializer(serializers.ModelSerializer):
         ]
 
     def validate(self, attrs):
+        print("Incoming registration data:", attrs)
         _validate_women_package(attrs.get("package_type"), attrs.get("gender"))
         return attrs
 
+    @transaction.atomic
     def create(self, validated_data):
         user_data = {
             "first_name": validated_data.pop("first_name"),
