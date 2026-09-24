@@ -143,6 +143,7 @@ def _build_summary_table(summary, page_width):
 
     temporal = summary.get("temporal_total", 0) or 0
     boxing = summary.get("boxing_fees_total", 0) or 0
+    discount = summary.get("discount_total", 0) or 0
 
     data = [
         [Paragraph("Category", head_style), Paragraph("Amount", head_val_style)],
@@ -163,6 +164,10 @@ def _build_summary_table(summary, page_width):
             Paragraph(_fmt(temporal + boxing), val_style),
         ],
         [
+            Paragraph("Discounts Total", label_style),
+            Paragraph(_fmt(discount), val_style),
+        ],
+        [
             Paragraph("Pending Total", label_style),
             Paragraph(_fmt(summary.get("pending_total", 0)), val_style),
         ],
@@ -181,6 +186,7 @@ def _build_summary_table(summary, page_width):
                 # Alternating rows
                 ("BACKGROUND", (0, 3), (-1, 3), LIGHT_BG),
                 ("BACKGROUND", (0, 5), (-1, 5), LIGHT_BG),
+                ("BACKGROUND", (0, 7), (-1, 7), LIGHT_BG),
                 # Grid
                 ("GRID", (0, 0), (-1, -1), 0.5, colors.Color(0.85, 0.85, 0.85)),
                 ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
@@ -230,7 +236,7 @@ def _build_transactions_table(rows, page_width):
         alignment=TA_CENTER,
     )
 
-    headers = ["#", "Name", "Status", "Package", "Mo.", "Base", "Card Fee", "Boxing", "Total", "Date"]
+    headers = ["#", "Name", "Status", "Package", "Mo.", "Base", "Card Fee", "Boxing", "Disc.", "Total", "Date"]
     header_row = [Paragraph(h, head_style) for h in headers]
 
     body_rows = []
@@ -246,6 +252,7 @@ def _build_transactions_table(rows, page_width):
 
         status_raw = r.get("status", "")
         pkg_raw = r.get("package_type", "")
+        discount_val = r.get("discount", 0) or 0
 
         body_rows.append([
             Paragraph(str(i + 1), cell_center),
@@ -256,6 +263,7 @@ def _build_transactions_table(rows, page_width):
             Paragraph(f"{r.get('base_amount', 0):,}", cell_right),
             Paragraph(f"{r.get('card_fee', 0):,}", cell_right),
             Paragraph(f"{r.get('boxing_fee', 0):,}", cell_right),
+            Paragraph(f"-{discount_val:,}" if discount_val else "—", cell_right),
             Paragraph(_fmt(r.get("total_paid", 0)), cell_bold),
             Paragraph(date_str, cell_style),
         ])
@@ -264,13 +272,14 @@ def _build_transactions_table(rows, page_width):
 
     col_widths = [
         page_width * 0.04,  # #
-        page_width * 0.16,  # Name
-        page_width * 0.09,  # Status
-        page_width * 0.10,  # Package
-        page_width * 0.05,  # Months
-        page_width * 0.10,  # Base
-        page_width * 0.10,  # Card Fee
-        page_width * 0.09,  # Boxing
+        page_width * 0.14,  # Name
+        page_width * 0.08,  # Status
+        page_width * 0.09,  # Package
+        page_width * 0.04,  # Months
+        page_width * 0.09,  # Base
+        page_width * 0.09,  # Card Fee
+        page_width * 0.08,  # Boxing
+        page_width * 0.08,  # Discount
         page_width * 0.14,  # Total
         page_width * 0.13,  # Date
     ]

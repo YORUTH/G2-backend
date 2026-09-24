@@ -20,6 +20,7 @@ class FinanceRowSerializer(serializers.Serializer):
     card_fee = serializers.IntegerField()
     locker_fee = serializers.IntegerField()
     boxing_fee = serializers.IntegerField()
+    discount = serializers.IntegerField(default=0)
     total_paid = serializers.IntegerField()
     paid_at = serializers.DateTimeField()
 
@@ -31,6 +32,7 @@ class FinanceSummarySerializer(serializers.Serializer):
     card_fees_total = serializers.IntegerField()
     locker_fees_total = serializers.IntegerField()
     boxing_fees_total = serializers.IntegerField()
+    discount_total = serializers.IntegerField(default=0)
     grand_total = serializers.IntegerField()
 
 

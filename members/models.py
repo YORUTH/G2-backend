@@ -100,6 +100,7 @@ class MemberProfile(models.Model):
     boxing_expires_at = models.DateTimeField(null=True, blank=True)
     # Null until member is activated from pending; finance falls back to start_date.
     payment_recorded_at = models.DateTimeField(null=True, blank=True, default=None)
+    discount_amount = models.PositiveIntegerField(default=0)
 
     @property
     def package_price(self):
@@ -310,6 +311,7 @@ class PendingMember(models.Model):
     password = models.CharField(max_length=128)
     pending_type = models.CharField(max_length=10, choices=PENDING_TYPE_CHOICES)
     wants_boxing = models.BooleanField(default=False)
+    discount_amount = models.PositiveIntegerField(default=0)
     activation_mode = models.CharField(
         max_length=10,
         choices=ACTIVATION_MODE_CHOICES,
@@ -358,6 +360,7 @@ class PendingMemberHistory(models.Model):
     package_type = models.CharField(max_length=20, choices=PACKAGE_CHOICES)
     pending_type = models.CharField(max_length=10, choices=PENDING_TYPE_CHOICES)
     wants_boxing = models.BooleanField(default=False)
+    discount_amount = models.PositiveIntegerField(default=0)
     activation_mode = models.CharField(max_length=10, choices=ACTIVATION_MODE_CHOICES)
     recorded_by = models.ForeignKey(
         User,

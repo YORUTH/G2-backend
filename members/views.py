@@ -535,6 +535,7 @@ class RenewalPendingMemberCreateView(APIView):
             age=member.age,
             package_type=serializer.validated_data["package_type"],
             wants_boxing=serializer.validated_data.get("wants_boxing", False),
+            discount_amount=serializer.validated_data.get("discount_amount", 0),
             password=member.user.password,
             pending_type="renewal",
             recorded_by=request.user,
@@ -580,6 +581,7 @@ class InstantRenewalView(APIView):
 
         months = PACKAGE_DURATION[package_type]
         wants_boxing = request.data.get("wants_boxing", False)
+        discount_amount = int(request.data.get("discount_amount", 0))
         
         member.start_date = now
         member.end_date = now + timedelta(days=30 * months)
@@ -591,9 +593,10 @@ class InstantRenewalView(APIView):
         else:
             member.boxing_expires_at = None
         member.payment_recorded_at = now
+        member.discount_amount = discount_amount
         member.user.is_active = True
         member.user.save(update_fields=["is_active"])
-        member.save(update_fields=["start_date", "end_date", "package_type", "is_renewal", "payment_recorded_at", "has_boxing", "boxing_expires_at"])
+        member.save(update_fields=["start_date", "end_date", "package_type", "is_renewal", "payment_recorded_at", "has_boxing", "boxing_expires_at", "discount_amount"])
 
         return Response({"message": "Membership renewed instantly"})
 
@@ -637,6 +640,7 @@ class ActivatePendingMemberView(APIView):
                 gender=pending.gender,
                 has_boxing=pending.wants_boxing,
                 boxing_expires_at=now + timedelta(days=30) if pending.wants_boxing else None,
+                discount_amount=pending.discount_amount,
             )
 
         elif pending.pending_type == "renewal":
@@ -675,10 +679,11 @@ class ActivatePendingMemberView(APIView):
                 member.boxing_expires_at = now + timedelta(days=30)
             else:
                 member.boxing_expires_at = None
+            member.discount_amount = pending.discount_amount
             member.user.save(update_fields=["is_active"])
             member.save(update_fields=[
                 "start_date", "end_date", "package_type", "is_renewal", "payment_recorded_at",
-                "weight", "height", "age", "gender", "has_boxing", "boxing_expires_at",
+                "weight", "height", "age", "gender", "has_boxing", "boxing_expires_at", "discount_amount"
             ])
             activated_profile = member
 
@@ -692,6 +697,7 @@ class ActivatePendingMemberView(APIView):
             age=pending.age,
             package_type=pending.package_type,
             wants_boxing=pending.wants_boxing,
+            discount_amount=pending.discount_amount,
             pending_type=pending.pending_type,
             activation_mode=pending.activation_mode,
             recorded_by=pending.recorded_by,
@@ -738,6 +744,7 @@ class PendingMemberHistoryListView(APIView):
                 "phone_number": row.phone_number,
                 "pending_type": row.pending_type,
                 "wants_boxing": row.wants_boxing,
+                "discount_amount": row.discount_amount,
                 "activation_mode": row.activation_mode,
                 "package_type": row.package_type,
                 "recorded_at": row.recorded_at,

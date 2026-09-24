@@ -27,6 +27,7 @@ class MemberCreateSerializer(serializers.ModelSerializer):
     phone_number = serializers.CharField(write_only=True)
     password = serializers.CharField(write_only=True)
     wants_boxing = serializers.BooleanField(write_only=True, required=False, default=False)
+    discount_amount = serializers.IntegerField(write_only=True, required=False, default=0)
 
     class Meta:
         model = MemberProfile
@@ -42,6 +43,7 @@ class MemberCreateSerializer(serializers.ModelSerializer):
             "package_type",
             "start_date",
             "wants_boxing",
+            "discount_amount",
         ]
 
     def validate(self, attrs):
@@ -70,7 +72,9 @@ class MemberCreateSerializer(serializers.ModelSerializer):
         validated_data["payment_recorded_at"] = start_date
         
         wants_boxing = validated_data.pop("wants_boxing", False)
+        discount_amount = validated_data.pop("discount_amount", 0)
 
+        validated_data["discount_amount"] = discount_amount
         profile = MemberProfile.objects.create(user=user, **validated_data)
         
         if wants_boxing:
@@ -131,6 +135,7 @@ class MemberReadSerializer(serializers.ModelSerializer):
             "locker_number",
             "has_boxing",
             "boxing_expires_at",
+            "discount_amount",
         ]
         read_only_fields = fields
 
@@ -368,6 +373,7 @@ class NewPendingMemberSerializer(serializers.ModelSerializer):
             "age",
             "package_type",
             "wants_boxing",
+            "discount_amount",
             "password",
         ]
 
@@ -386,6 +392,7 @@ class RenewalPendingSerializer(serializers.Serializer):
     member_id = serializers.IntegerField()
     package_type = serializers.ChoiceField(choices=PACKAGE_CHOICES)
     wants_boxing = serializers.BooleanField(default=False)
+    discount_amount = serializers.IntegerField(default=0)
 
     def validate_member_id(self, value):
         try:
@@ -429,6 +436,7 @@ class PendingMemberSerializer(serializers.ModelSerializer):
             "pending_type",
             "package_type",
             "wants_boxing",
+            "discount_amount",
             "package_price",
             "activation_mode",
             "status",

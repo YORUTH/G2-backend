@@ -99,6 +99,7 @@ def get_finance_report_data(params):
     pending_total = 0
     card_fees_total = 0
     boxing_fees_total = 0
+    discount_total = 0
     temporal_total = 0
 
     # ── Active members whose payment falls in the date range ───────────
@@ -123,8 +124,9 @@ def get_finance_report_data(params):
         paid_at = _payment_date(m)
 
         # Locker payments are handled entirely in the LockerFinanceReportView
-        base_amount, card_fee, locker_fee, boxing_fee, total = calculate_amount(
-            m.package_type, is_new=is_new, has_locker=False, has_boxing=m.has_boxing
+        base_amount, card_fee, locker_fee, boxing_fee, discount, total = calculate_amount(
+            m.package_type, is_new=is_new, has_locker=False, has_boxing=m.has_boxing,
+            discount=m.discount_amount,
         )
 
         rows.append({
@@ -138,6 +140,7 @@ def get_finance_report_data(params):
             "card_fee": card_fee,
             "locker_fee": locker_fee,
             "boxing_fee": boxing_fee,
+            "discount": discount,
             "total_paid": total,
             "paid_at": paid_at.astimezone(ADDIS_TZ),
         })
@@ -145,6 +148,7 @@ def get_finance_report_data(params):
         active_total += total
         card_fees_total += card_fee
         boxing_fees_total += boxing_fee
+        discount_total += discount
 
     # ── Pending members recorded in the date range ────────────────────
     pending_members = PendingMember.objects.filter(
@@ -155,8 +159,9 @@ def get_finance_report_data(params):
 
     for p in pending_members:
         is_new = p.pending_type == "new"
-        base_amount, card_fee, locker_fee, boxing_fee, total = calculate_amount(
-            p.package_type, is_new=is_new, has_locker=False, has_boxing=p.wants_boxing
+        base_amount, card_fee, locker_fee, boxing_fee, discount, total = calculate_amount(
+            p.package_type, is_new=is_new, has_locker=False, has_boxing=p.wants_boxing,
+            discount=p.discount_amount,
         )
 
         rows.append({
@@ -171,6 +176,7 @@ def get_finance_report_data(params):
             "card_fee": card_fee,
             "locker_fee": locker_fee,
             "boxing_fee": boxing_fee,
+            "discount": discount,
             "total_paid": total,
             "paid_at": p.recorded_at.astimezone(ADDIS_TZ),
         })
@@ -178,6 +184,7 @@ def get_finance_report_data(params):
         pending_total += total
         card_fees_total += card_fee
         boxing_fees_total += boxing_fee
+        discount_total += discount
 
 
 
@@ -215,6 +222,7 @@ def get_finance_report_data(params):
             "card_fees_total": card_fees_total,
             "locker_fees_total": 0,  # Now strictly 0 in the main report
             "boxing_fees_total": boxing_fees_total,
+            "discount_total": discount_total,
             "grand_total": grand_total,
         },
     }
@@ -256,6 +264,9 @@ def get_telegram_message_payload(data, start_date, end_date):
         [
             {"text": "🥊 Boxing Fees", "callback_data": f"val|Boxing Fees|{summary.get('boxing_fees_total', 0)}"},
             {"text": "⏱️ Temporal", "callback_data": f"val|Temporal|{summary.get('temporal_total', 0)}"}
+        ],
+        [
+            {"text": "🏷️ Discounts", "callback_data": f"val|Discounts|{summary.get('discount_total', 0)}"}
         ]
     ]
     return text, inline_keyboard
