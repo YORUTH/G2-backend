@@ -10,6 +10,33 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 from .models import MemberProfile, Locker, assign_locker
 
+import threading
+import json
+import urllib.request
+
+def enroll_on_zk_device(pin, name, photo_b64=None):
+    """Safely notify zk_server.py to create / update the user profile on the SenseFace 2A scanner."""
+    if not pin:
+        return
+    try:
+        if photo_b64:
+            endpoint = "http://localhost:8088/api/enroll_photo"
+            payload = {"pin": str(pin), "name": str(name), "photo": photo_b64}
+        else:
+            endpoint = "http://localhost:8088/api/enroll"
+            payload = {"pin": str(pin), "name": str(name)}
+
+        data = json.dumps(payload).encode("utf-8")
+        req = urllib.request.Request(
+            endpoint,
+            data=data,
+            headers={"Content-Type": "application/json"}
+        )
+        with urllib.request.urlopen(req, timeout=3.0) as resp:
+            pass
+    except Exception as e:
+        print(f"[ZK ENROLL] Note: Could not auto-sync PIN {pin} to scanner: {e}")
+
 User = get_user_model()
 PACKAGE_CHOICES = MODEL_PACKAGE_CHOICES
 
@@ -28,6 +55,8 @@ class MemberCreateSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
     wants_boxing = serializers.BooleanField(write_only=True, required=False, default=False)
     discount_amount = serializers.IntegerField(write_only=True, required=False, default=0)
+    machine_user_id = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    face_photo = serializers.CharField(write_only=True, required=False, allow_blank=True, allow_null=True)
 
     class Meta:
         model = MemberProfile
@@ -44,6 +73,8 @@ class MemberCreateSerializer(serializers.ModelSerializer):
             "start_date",
             "wants_boxing",
             "discount_amount",
+            "machine_user_id",
+            "face_photo",
         ]
 
     def validate(self, attrs):
@@ -75,14 +106,26 @@ class MemberCreateSerializer(serializers.ModelSerializer):
         
         wants_boxing = validated_data.pop("wants_boxing", False)
         discount_amount = validated_data.pop("discount_amount", 0)
+        face_photo = validated_data.pop("face_photo", None)
 
         validated_data["discount_amount"] = discount_amount
         profile = MemberProfile.objects.create(user=user, **validated_data)
+
+        if not profile.machine_user_id:
+            profile.machine_user_id = str(profile.id)
+            profile.save(update_fields=["machine_user_id"])
         
         if wants_boxing:
             profile.has_boxing = True
             profile.boxing_expires_at = start_date + timedelta(days=30)
             profile.save(update_fields=["has_boxing", "boxing_expires_at"])
+
+        if profile.machine_user_id:
+            threading.Thread(
+                target=enroll_on_zk_device,
+                args=(profile.machine_user_id, f"{user.first_name} {user.last_name}", face_photo),
+                daemon=True
+            ).start()
             
         return profile
 
@@ -138,6 +181,7 @@ class MemberReadSerializer(serializers.ModelSerializer):
             "has_boxing",
             "boxing_expires_at",
             "discount_amount",
+            "machine_user_id",
         ]
         read_only_fields = fields
 
@@ -362,6 +406,7 @@ from django.contrib.auth.hashers import make_password
 
 class NewPendingMemberSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
+    face_photo = serializers.CharField(write_only=True, required=False, allow_blank=True, allow_null=True)
 
     class Meta:
         model = PendingMember
@@ -377,6 +422,8 @@ class NewPendingMemberSerializer(serializers.ModelSerializer):
             "wants_boxing",
             "discount_amount",
             "password",
+            "machine_user_id",
+            "face_photo",
         ]
 
     def validate(self, attrs):
@@ -384,10 +431,23 @@ class NewPendingMemberSerializer(serializers.ModelSerializer):
         return attrs
 
     def create(self, validated_data):
+        face_photo = validated_data.pop("face_photo", None)
         validated_data["password"] = make_password(validated_data["password"])
         validated_data["pending_type"] = "new"
         validated_data["activation_mode"] = "delayed"
-        return PendingMember.objects.create(**validated_data)
+        pending = PendingMember.objects.create(**validated_data)
+        if not pending.machine_user_id:
+            pending.machine_user_id = f"P{pending.id}"
+            pending.save(update_fields=["machine_user_id"])
+
+        if pending.machine_user_id and face_photo:
+            threading.Thread(
+                target=enroll_on_zk_device,
+                args=(pending.machine_user_id, f"{pending.first_name} {pending.last_name}", face_photo),
+                daemon=True
+            ).start()
+
+        return pending
 
 
 class RenewalPendingSerializer(serializers.Serializer):
@@ -444,5 +504,6 @@ class PendingMemberSerializer(serializers.ModelSerializer):
             "status",
             "recorded_by",
             "recorded_at",
+            "machine_user_id",
         ]
         read_only_fields = fields

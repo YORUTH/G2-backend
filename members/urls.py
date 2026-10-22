@@ -5,6 +5,8 @@ from .views import (
     ListMembersView,
     MyProfileView,
     BarcodeCheckInView,
+    FaceCheckInView,
+    ScannerStatusProxyView,
     RecentCheckInsView,
     RecentRegistrationsView,
     MemberAttendanceCalendarView,
@@ -40,6 +42,8 @@ urlpatterns = [
 
     # CHECK-IN SYSTEM
     path("checkin/<str:barcode_number>/", BarcodeCheckInView.as_view(), name="barcode-checkin"),
+    path("checkin/face/<str:machine_user_id>/", FaceCheckInView.as_view(), name="face-checkin"),
+    path("scanner/status/", ScannerStatusProxyView.as_view(), name="scanner-status"),
     path("recent-checkins/", RecentCheckInsView.as_view(), name="recent-checkins"),
 
     # MEMBER ACTIVITY

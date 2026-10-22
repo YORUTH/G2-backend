@@ -20,7 +20,7 @@ from .serializers import RecentCheckInSerializer
 from datetime import timedelta, datetime
 from .filters import MemberProfileFilter
 from rest_framework.pagination import PageNumberPagination
-from .serializers import MemberImageAttachSerializer
+from .serializers import MemberImageAttachSerializer, enroll_on_zk_device
 from django.contrib.auth import get_user_model
 
 User = get_user_model()
@@ -159,15 +159,40 @@ class MyProfileView(generics.RetrieveAPIView):
         return self.request.user.profile
 
 
+def find_member_for_checkin(identifier):
+    """
+    Finds a member for check-in by:
+    1. machine_user_id (ZKTeco SenseFace 2A scanner PIN)
+    2. MemberProfile ID (if numeric)
+    3. barcode
+    """
+    ident = str(identifier).strip()
+    if not ident:
+        return None
+    # 1. Match machine_user_id
+    member = MemberProfile.objects.select_related("user").filter(machine_user_id=ident).first()
+    if member:
+        return member
+    # 2. Match ID if numeric
+    if ident.isdigit():
+        member = MemberProfile.objects.select_related("user").filter(id=int(ident)).first()
+        if member:
+            return member
+    # 3. Match barcode
+    member = MemberProfile.objects.select_related("user").filter(barcode=ident).first()
+    if member:
+        return member
+    return None
+
+
 class BarcodeCheckInView(APIView):
 
     permission_classes = [IsManagerOrReceptionist]
 
     def post(self, request, barcode_number):
-        try:
-            member = MemberProfile.objects.get(barcode=barcode_number)
-        except MemberProfile.DoesNotExist:
-            return Response({"valid": False, "message": "Member not found."}, status=404)
+        member = find_member_for_checkin(barcode_number)
+        if not member:
+            return Response({"valid": False, "message": f"Member not found for '{barcode_number}'."}, status=404)
 
         now = timezone.now()
         if member.end_date < now and member.user.is_active:
@@ -192,6 +217,66 @@ class BarcodeCheckInView(APIView):
             "message": "Check-in successful!",
             "checkin": CheckInSerializer(checkin).data
         }, status=200)
+
+
+class FaceCheckInView(APIView):
+    """Check-in directly triggered by ZKTeco SenseFace 2A scanner PIN."""
+
+    permission_classes = [IsManagerOrReceptionist]
+
+    def post(self, request, machine_user_id):
+        member = find_member_for_checkin(machine_user_id)
+        if not member:
+            return Response({
+                "valid": False,
+                "message": f"No member found attached to Machine User ID {machine_user_id}."
+            }, status=404)
+
+        now = timezone.now()
+        if member.end_date < now and member.user.is_active:
+            member.user.is_active = False
+            member.user.save(update_fields=["is_active"])
+
+        if not member.user.is_active:
+            return Response({
+                "valid": False,
+                "member": member.user.first_name,
+                "message": f"Membership expired on {member.end_date.strftime('%Y-%m-%d %H:%M:%S')}."
+            }, status=403)
+
+        checkin = CheckIn.objects.create(member=member)
+        member.refresh_from_db()
+
+        return Response({
+            "valid": True,
+            "member": member.user.first_name,
+            "package_type": member.package_type,
+            "end_date": member.end_date,
+            "message": "Check-in successful via SenseFace 2A scanner!",
+            "checkin": CheckInSerializer(checkin).data
+        }, status=200)
+
+
+class ScannerStatusProxyView(APIView):
+    """Proxy live device status from local zk_server.py so web clients can poll securely."""
+
+    permission_classes = [IsManagerOrReceptionist]
+
+    def get(self, request):
+        import urllib.request
+        import json
+        try:
+            req = urllib.request.Request("http://localhost:8088/api/status")
+            with urllib.request.urlopen(req, timeout=1.8) as resp:
+                data = json.loads(resp.read().decode())
+                return Response(data, status=200)
+        except Exception as e:
+            return Response({
+                "ping_ok": False,
+                "device_ip": "192.168.1.201",
+                "error": f"SenseFace 2A server offline or unreachable: {str(e)}",
+                "logs": []
+            }, status=200)
 
 
 class RecentCheckInsView(generics.ListAPIView):
@@ -540,6 +625,7 @@ class RenewalPendingMemberCreateView(APIView):
             pending_type="renewal",
             recorded_by=request.user,
             activated_profile=member,
+            machine_user_id=member.machine_user_id,
         )
 
         return Response(
@@ -641,7 +727,12 @@ class ActivatePendingMemberView(APIView):
                 has_boxing=pending.wants_boxing,
                 boxing_expires_at=now + timedelta(days=30) if pending.wants_boxing else None,
                 discount_amount=pending.discount_amount,
+                machine_user_id=pending.machine_user_id,
             )
+            if not activated_profile.machine_user_id:
+                activated_profile.machine_user_id = str(activated_profile.id)
+                activated_profile.save(update_fields=["machine_user_id"])
+
 
         elif pending.pending_type == "renewal":
             member = get_object_or_404(
@@ -704,7 +795,19 @@ class ActivatePendingMemberView(APIView):
             activated_profile=activated_profile,
             recorded_at=pending.recorded_at,
             activated_at=now,
+            machine_user_id=pending.machine_user_id,
         )
+
+        if activated_profile and activated_profile.machine_user_id:
+            import threading
+            threading.Thread(
+                target=enroll_on_zk_device,
+                args=(
+                    activated_profile.machine_user_id,
+                    f"{activated_profile.user.first_name} {activated_profile.user.last_name}"
+                ),
+                daemon=True
+            ).start()
 
         pending.delete()
 
