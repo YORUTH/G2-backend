@@ -30,9 +30,60 @@ server_state = {
     "command_queue": {}, # sn -> list of {"id": int, "cmd": str, "sent": bool, "created": str}
     "command_history": [],
     "logs": [], # list of face scan / attlog records
+    "events": [], # Machine notifications: member_created, member_enrolled
+    "pin_names": {}, # pin -> member full name
+    "enrolled_pins": [], # list of pins with confirmed face enrollment
     "cmd_counter": 1,
     "scan_enabled": True
 }
+
+def record_machine_event(event_type, pin, name=None):
+    if not pin or str(pin) in ("SYSTEM", "UNKNOWN", "Realtime Event"):
+        return
+    pin = str(pin).strip()
+    
+    # Store or lookup name
+    if name:
+        server_state.setdefault("pin_names", {})[pin] = name
+    else:
+        name = server_state.get("pin_names", {}).get(pin, "")
+
+    now = datetime.now()
+    now_str = now.strftime("%Y-%m-%d %H:%M:%S")
+
+    # Anti-duplicate event debounce: don't record if event for same PIN occurred within the last 10 seconds
+    recent_events = server_state.setdefault("events", [])
+    for ev in recent_events[:15]:
+        if str(ev.get("pin")) == pin:
+            ev_time_str = ev.get("time")
+            if ev_time_str:
+                try:
+                    ev_time = datetime.strptime(ev_time_str, "%Y-%m-%d %H:%M:%S")
+                    if (now - ev_time).total_seconds() < 10:
+                        return  # Debounce within 10 seconds
+                except Exception:
+                    pass
+
+    event_id = len(recent_events) + 1
+    display_name = f" ({name})" if name else ""
+    msg = f"User {pin}{display_name} enrolled successfully"
+
+    if pin not in server_state.setdefault("enrolled_pins", []):
+        server_state["enrolled_pins"].append(pin)
+
+    ev_entry = {
+        "id": event_id,
+        "type": event_type,
+        "pin": pin,
+        "name": name,
+        "time": now_str,
+        "message": msg
+    }
+    recent_events.insert(0, ev_entry)
+    if len(recent_events) > 100:
+        server_state["events"] = recent_events[:100]
+
+    print(f"[MACHINE NOTIFICATION] *** {event_type.upper()}: {msg} ***")
 
 def check_ping():
     try:
@@ -143,6 +194,32 @@ class ZKHandler(BaseHTTPRequestHandler):
             self.wfile.write(json.dumps(server_state, indent=2).encode("utf-8"))
             return
 
+        # 3b. Web Dashboard REST API: Reload Server
+        if path == "/api/reload":
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(b'{"ok": true, "msg": "Reloading zk_server..."}')
+            def _restart():
+                time.sleep(0.5)
+                os.execv(sys.executable, [sys.executable] + sys.argv)
+            import threading
+            threading.Thread(target=_restart, daemon=True).start()
+            return
+
+        # 3c. Web Dashboard REST API: Test Event Notification Trigger
+        if path == "/api/test_event":
+            pin = query.get("pin", ["10"])[0]
+            etype = query.get("type", ["member_enrolled"])[0]
+            record_machine_event(etype, pin)
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(b'{"ok": true}')
+            return
+
         # 4. Web Dashboard UI
         if path == "/" or path == "/index.html":
             self.serve_dashboard()
@@ -201,6 +278,26 @@ class ZKHandler(BaseHTTPRequestHandler):
 
         # 4. ZKTeco photo / face data upload
         if path == "/iclock/fdata":
+            sn = query.get("SN", ["UNKNOWN"])[0]
+            touch_device(sn, self.client_address[0])
+            pin = query.get("PIN", query.get("pin", [""]))[0]
+            if not pin:
+                fname = query.get("filename", [""])[0] or self.headers.get("X-Filename", "")
+                if fname:
+                    base = os.path.basename(fname).split(".")[0]
+                    parts = base.split("_")
+                    if parts and parts[0].isdigit():
+                        pin = parts[0]
+            if not pin and body:
+                for line in body.splitlines():
+                    if "pin=" in line.lower():
+                        for token in line.split():
+                            if token.lower().startswith("pin="):
+                                pin = token.split("=")[1].strip()
+                                break
+            if pin:
+                record_machine_event("member_enrolled", pin)
+
             self.send_response(200)
             self.send_header("Content-Type", "text/plain")
             self.end_headers()
@@ -217,6 +314,9 @@ class ZKHandler(BaseHTTPRequestHandler):
                 touch_device(sn)
 
                 if sn:
+                    # Record member_created notification event immediately
+                    record_machine_event("member_created", pin, name=name)
+
                     # Create / update user on terminal
                     server_state["cmd_counter"] += 1
                     cmd_user = {
@@ -573,15 +673,41 @@ class ZKHandler(BaseHTTPRequestHandler):
                     k, v = p.split("=", 1)
                     kv[k.strip().lower()] = v.strip()
 
+            table_lower = table.lower()
+            tablename_lower = query.get("tablename", [""])[0].lower()
+
             # 1. Ignore high-frequency hardware sensor polling state
-            if table == "rtstate":
+            if table_lower == "rtstate":
                 continue
 
-            # 2. Ignore uploaded device tabledata (no disk writing)
-            if table == "tabledata":
+            # 2. Check for face biometric enrollment upload (table=BIODATA, BIOPHOTO, or tablename=biodata/biophoto)
+            if (
+                table_lower in ("biophoto", "biodata", "templatev10", "biotemplate")
+                or tablename_lower in ("biophoto", "biodata", "templatev10", "biotemplate")
+            ):
+                pin = kv.get("pin") or kv.get("PIN")
+                if not pin and parts:
+                    for p in parts:
+                        if p.isdigit():
+                            pin = p
+                            break
+                if pin:
+                    record_machine_event("member_enrolled", pin)
                 continue
 
-            # 3. Process face scan attendance events (ATTLOG / rtlog)
+            # 3. Check for user profile upload from device
+            if table_lower in ("user", "userdata") or tablename_lower in ("user", "userdata"):
+                pin = kv.get("pin") or kv.get("PIN")
+                uname = kv.get("name") or kv.get("NAME") or ""
+                if pin:
+                    record_machine_event("member_created", pin, name=uname)
+                continue
+
+            # 4. Ignore other tabledata
+            if table_lower == "tabledata":
+                continue
+
+            # 5. Process face scan attendance events (ATTLOG / rtlog)
             if table in ("ATTLOG", "rtlog") or "time" in kv or "pin" in kv:
                 if kv:
                     punch_time = kv.get("time", now_str)
@@ -626,8 +752,21 @@ class ZKHandler(BaseHTTPRequestHandler):
                 }
                 server_state["logs"].insert(0, log_entry)
                 print(f"[ADMS FACE SCAN] *** USER {pin} SCANNED FACE AT {punch_time} ({v_name}) ***")
+
+                # If this is a verified face recognition punch and face was not verified yet
+                if (event_code in ("0", "3", "27") or verify_type in ("15", "20", "25")):
+                    if pin and pin not in ("SYSTEM", "UNKNOWN", "Realtime Event") and pin not in server_state.setdefault("face_verified_pins", []):
+                        server_state["face_verified_pins"].append(pin)
+                        record_machine_event("member_enrolled", pin)
             else:
-                # Other operations
+                # Other operations (including OPLOG)
+                if table_lower in ("oplog", "operlog") and ("10" in line or "1" in line):
+                    # Check for operation log enrollment
+                    for p in parts:
+                        if p.isdigit() and int(p) > 0 and p != "10" and p != "1":
+                            record_machine_event("member_enrolled", p)
+                            break
+
                 log_entry = {
                     "id": len(server_state["logs"]) + 1,
                     "sn": sn,
@@ -664,6 +803,25 @@ class ZKHandler(BaseHTTPRequestHandler):
             if str(item["id"]) == cmd_id:
                 item["status"] = "Completed"
                 item["response"] = body[:200]
+                # If DATA UPDATE user completed successfully on terminal
+                if "DATA UPDATE user" in item.get("cmd", "") and ("Return=0" in body or params.get("Return", [""])[0] == "0"):
+                    cmd_str = item["cmd"]
+                    import re
+                    match = re.search(r"PIN=(\w+)(?:\s*\((.*?)\))?", cmd_str)
+                    if match:
+                        pin = match.group(1)
+                        name = match.group(2) or ""
+                        record_machine_event("member_enrolled", pin, name=name)
+
+                # If face photo upload completed successfully on terminal
+                if ("biophoto" in item.get("cmd", "").lower() or "upload face photo" in item.get("cmd", "").lower()) and ("Return=0" in body or params.get("Return", [""])[0] == "0"):
+                    cmd_str = item["cmd"]
+                    import re
+                    match = re.search(r"(?:PIN=|User\s+)(\w+)(?:\s*\((.*?)\))?", cmd_str)
+                    if match:
+                        pin = match.group(1)
+                        name = match.group(2) or ""
+                        record_machine_event("member_enrolled", pin, name=name)
 
         # Extract device info if INFO command
         if sn in server_state["devices"]:

@@ -206,11 +206,35 @@ class BarcodeCheckInView(APIView):
                 "message": f"Membership expired on {member.end_date.strftime('%Y-%m-%d %H:%M:%S')}."
             }, status=403)
 
+        # Prevent duplicate daily check-in
+        from datetime import datetime, time
+        today = timezone.localdate()
+        start_of_day = timezone.make_aware(datetime.combine(today, time.min))
+        end_of_day = timezone.make_aware(datetime.combine(today, time.max))
+
+        existing_checkin = CheckIn.objects.filter(
+            member=member,
+            timestamp__gte=start_of_day,
+            timestamp__lte=end_of_day
+        ).order_by('-timestamp').first()
+
+        if existing_checkin:
+            return Response({
+                "valid": True,
+                "duplicate": True,
+                "member": member.user.first_name,
+                "package_type": member.package_type,
+                "end_date": member.end_date,
+                "message": f"{member.user.first_name} {member.user.last_name} has already checked in today.",
+                "checkin": CheckInSerializer(existing_checkin).data
+            }, status=200)
+
         checkin = CheckIn.objects.create(member=member)
         member.refresh_from_db()
 
         return Response({
             "valid": True,
+            "duplicate": False,
             "member": member.user.first_name,
             "package_type": member.package_type,
             "end_date": member.end_date,
@@ -244,11 +268,35 @@ class FaceCheckInView(APIView):
                 "message": f"Membership expired on {member.end_date.strftime('%Y-%m-%d %H:%M:%S')}."
             }, status=403)
 
+        # Prevent duplicate daily check-in
+        from datetime import datetime, time
+        today = timezone.localdate()
+        start_of_day = timezone.make_aware(datetime.combine(today, time.min))
+        end_of_day = timezone.make_aware(datetime.combine(today, time.max))
+
+        existing_checkin = CheckIn.objects.filter(
+            member=member,
+            timestamp__gte=start_of_day,
+            timestamp__lte=end_of_day
+        ).order_by('-timestamp').first()
+
+        if existing_checkin:
+            return Response({
+                "valid": True,
+                "duplicate": True,
+                "member": member.user.first_name,
+                "package_type": member.package_type,
+                "end_date": member.end_date,
+                "message": f"{member.user.first_name} {member.user.last_name} has already checked in today.",
+                "checkin": CheckInSerializer(existing_checkin).data
+            }, status=200)
+
         checkin = CheckIn.objects.create(member=member)
         member.refresh_from_db()
 
         return Response({
             "valid": True,
+            "duplicate": False,
             "member": member.user.first_name,
             "package_type": member.package_type,
             "end_date": member.end_date,
@@ -260,7 +308,7 @@ class FaceCheckInView(APIView):
 class ScannerStatusProxyView(APIView):
     """Proxy live device status from local zk_server.py so web clients can poll securely."""
 
-    permission_classes = [IsManagerOrReceptionist]
+    permission_classes = [AllowAny]
 
     def get(self, request):
         import urllib.request
@@ -269,13 +317,23 @@ class ScannerStatusProxyView(APIView):
             req = urllib.request.Request("http://localhost:8088/api/status")
             with urllib.request.urlopen(req, timeout=1.8) as resp:
                 data = json.loads(resp.read().decode())
+                events = data.get("events", [])
+                for ev in events:
+                    pin = str(ev.get("pin", "")).strip()
+                    if not ev.get("name") and pin:
+                        member = find_member_for_checkin(pin)
+                        if member:
+                            ev["name"] = f"{member.user.first_name} {member.user.last_name}".strip()
+                    display_name = f" ({ev['name']})" if ev.get("name") else ""
+                    ev["message"] = f"User {pin}{display_name} enrolled successfully"
                 return Response(data, status=200)
         except Exception as e:
             return Response({
                 "ping_ok": False,
                 "device_ip": "192.168.1.201",
                 "error": f"SenseFace 2A server offline or unreachable: {str(e)}",
-                "logs": []
+                "logs": [],
+                "events": []
             }, status=200)
 
 

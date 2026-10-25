@@ -173,6 +173,26 @@ class CheckIn(models.Model):
     )
     timestamp = models.DateTimeField(default=timezone.now)
 
+    def save(self, *args, **kwargs):
+        if not self.pk:
+            from datetime import datetime, time
+            current_time = self.timestamp if self.timestamp else timezone.now()
+            today = timezone.localtime(current_time).date()
+            start_of_day = timezone.make_aware(datetime.combine(today, time.min))
+            end_of_day = timezone.make_aware(datetime.combine(today, time.max))
+            existing = CheckIn.objects.filter(
+                member=self.member,
+                timestamp__gte=start_of_day,
+                timestamp__lte=end_of_day
+            ).order_by('-timestamp').first()
+            if existing:
+                # Reuse existing check-in; DO NOT save a duplicate timestamp in database
+                self.id = existing.id
+                self.pk = existing.pk
+                self.timestamp = existing.timestamp
+                return
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return f"{self.member.user.first_name} checked in at {self.timestamp}"
 
