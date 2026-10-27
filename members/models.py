@@ -101,6 +101,8 @@ class MemberProfile(models.Model):
     payment_recorded_at = models.DateTimeField(null=True, blank=True, default=None)
     discount_amount = models.PositiveIntegerField(default=0)
     machine_user_id = models.CharField(max_length=50, null=True, blank=True, db_index=True)
+    is_face_enrolled = models.BooleanField(default=False)
+    face_enrolled_at = models.DateTimeField(null=True, blank=True)
 
     @property
     def package_price(self):

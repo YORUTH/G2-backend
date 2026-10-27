@@ -33,6 +33,7 @@ MAIN_KEYBOARD = {
     "keyboard": [
         [{"text": "📊 Finance Report"}],
         [{"text": "📅 Last 7 Days"}, {"text": "📅 Last 30 Days"}],
+        [{"text": "👤 Face Enrolled Today"}],
     ],
     "resize_keyboard": True,
     "one_time_keyboard": False,
@@ -210,7 +211,23 @@ class Command(BaseCommand):
                 text, ik, pdf_buf, pdf_name = get_report_with_pdf(from_date, to_date)
                 self.send_message(url, chat_id, text, reply_markup={"inline_keyboard": ik})
                 self.send_document(url, chat_id, pdf_buf, pdf_name)
-            
+            elif callback_data == "face_enrolled_today":
+                today_date = now_addis.date()
+                start_of_day = timezone.make_aware(datetime.combine(today_date, datetime.min.time()), ADDIS_TZ)
+                end_of_day = timezone.make_aware(datetime.combine(today_date, datetime.max.time()), ADDIS_TZ)
+                close_old_connections()
+                from members.models import MemberProfile
+                count = MemberProfile.objects.filter(
+                    is_face_enrolled=True,
+                    face_enrolled_at__range=(start_of_day, end_of_day)
+                ).count()
+                msg_text = (
+                    f"👤 *Face Enrollment Report*\n"
+                    f"📅 Date: {today_date.strftime('%Y-%m-%d')}\n\n"
+                    f"Total members enrolled today: *{count}*"
+                )
+                self.send_message(url, chat_id, msg_text)
+
             # Answer callback query to remove loading state
             requests.get(url + "answerCallbackQuery", params={"callback_query_id": callback["id"]})
             return
@@ -251,6 +268,30 @@ class Command(BaseCommand):
                 self.send_message(url, chat_id, text, reply_markup={"inline_keyboard": ik})
                 self.send_document(url, chat_id, pdf_buf, pdf_name)
                 self.stdout.write(self.style.SUCCESS(f"30-day report sent to chat {chat_id}"))
+                return
+
+            # ── Button: "👤 Face Enrolled Today" ─────────────────────
+            if user_text == "👤 Face Enrolled Today" or user_text_lower in ["/enrolled", "enrolled", "face enroller", "face enrolled", "face enrollment"]:
+                now_addis = timezone.now().astimezone(ADDIS_TZ)
+                today_date = now_addis.date()
+                start_of_day = timezone.make_aware(datetime.combine(today_date, datetime.min.time()), ADDIS_TZ)
+                end_of_day = timezone.make_aware(datetime.combine(today_date, datetime.max.time()), ADDIS_TZ)
+
+                close_old_connections()
+                from members.models import MemberProfile
+
+                enrolled_today_count = MemberProfile.objects.filter(
+                    is_face_enrolled=True,
+                    face_enrolled_at__range=(start_of_day, end_of_day)
+                ).count()
+
+                msg_text = (
+                    f"👤 *Face Enrollment Report*\n"
+                    f"📅 Date: {today_date.strftime('%Y-%m-%d')}\n\n"
+                    f"Total members enrolled today: *{enrolled_today_count}*"
+                )
+                self.send_message(url, chat_id, msg_text, reply_markup=MAIN_KEYBOARD)
+                self.stdout.write(self.style.SUCCESS(f"Face enrollment count sent to chat {chat_id}: {enrolled_today_count}"))
                 return
 
             # ── Button: "📊 Finance Report" / typed: report, finance, /start ──

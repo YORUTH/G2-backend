@@ -24,6 +24,8 @@ from .views import (
     ActivatePendingMemberView,
     InstantRenewalView,
     PackageTypesView,
+    FaceEnrollmentListView,
+    ToggleFaceEnrollmentView,
 )
 
 urlpatterns = [
@@ -69,5 +71,9 @@ urlpatterns = [
 
     # PACKAGE INFO
     path("package-types/", PackageTypesView.as_view(), name="package-types"),
+
+    # FACE ENROLLMENT (SCANNER)
+    path("enrollment-list/", FaceEnrollmentListView.as_view(), name="face-enrollment-list"),
+    path("<int:pk>/toggle-enroll/", ToggleFaceEnrollmentView.as_view(), name="toggle-face-enroll"),
 
 ]

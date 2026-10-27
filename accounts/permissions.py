@@ -88,7 +88,17 @@ class IsManagerForCustomFinance(permissions.BasePermission):
         if is_custom:
             return role == "manager"
 
-        if role == "manager":
-            return True
-
         return role in ["receptionist", "lockerreceptionist"]
+
+
+class IsFaceEnroller(permissions.BasePermission):
+    """
+    Access for face enrollment operations (face_enroller, manager, receptionist).
+    """
+    def has_permission(self, request, view):
+        if request.method == "OPTIONS":
+            return True
+        return (
+            request.user.is_authenticated
+            and request.user.role in ["face_enroller", "manager", "receptionist"]
+        )

@@ -507,3 +507,31 @@ class PendingMemberSerializer(serializers.ModelSerializer):
             "machine_user_id",
         ]
         read_only_fields = fields
+
+
+class FaceEnrollmentMemberSerializer(serializers.ModelSerializer):
+    full_name = serializers.SerializerMethodField()
+    phone_number = serializers.CharField(source="user.phone_number", read_only=True)
+    first_name = serializers.CharField(source="user.first_name", read_only=True)
+    last_name = serializers.CharField(source="user.last_name", read_only=True)
+
+    class Meta:
+        model = MemberProfile
+        fields = [
+            "id",
+            "full_name",
+            "first_name",
+            "last_name",
+            "phone_number",
+            "machine_user_id",
+            "barcode",
+            "is_face_enrolled",
+            "face_enrolled_at",
+            "package_type",
+        ]
+        read_only_fields = fields
+
+    def get_full_name(self, obj):
+        first = obj.user.first_name if obj.user else ""
+        last = obj.user.last_name if obj.user else ""
+        return f"{first} {last}".strip()

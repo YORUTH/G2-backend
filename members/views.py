@@ -1,8 +1,8 @@
 from rest_framework import generics, permissions
 from rest_framework.permissions import AllowAny
 from .models import PACKAGE_DURATION, MemberProfile
-from .serializers import MemberCreateSerializer, TrainerUpdateSerializer, MemberReadSerializer
-from accounts.permissions import IsManagerOrReceptionist, IsTrainer, IsMember, CanViewMemberDetail, CanViewMembersList
+from .serializers import MemberCreateSerializer, TrainerUpdateSerializer, MemberReadSerializer, FaceEnrollmentMemberSerializer
+from accounts.permissions import IsManagerOrReceptionist, IsTrainer, IsMember, CanViewMemberDetail, CanViewMembersList, IsFaceEnroller
 from rest_framework.response import Response
 from rest_framework import status
 from django.db.models import F, ExpressionWrapper, fields, Q
@@ -941,3 +941,96 @@ class PackageTypesView(APIView):
             })
 
         return Response(packages)
+
+
+class FaceEnrollmentListView(APIView):
+    """
+    List members for face enrollment.
+    Supports search by:
+      - phone number
+      - member ID / machine PIN / barcode
+      - full name, first name, last name
+    """
+    permission_classes = [IsFaceEnroller]
+
+    def get(self, request):
+        from .models import ADDIS_TZ
+        query = request.query_params.get("search", "").strip()
+        status_filter = request.query_params.get("status", "all").strip().lower()
+
+        queryset = MemberProfile.objects.select_related("user").order_by("-id")
+
+        if query:
+            q_filter = (
+                Q(user__first_name__icontains=query)
+                | Q(user__last_name__icontains=query)
+                | Q(user__phone_number__icontains=query)
+                | Q(machine_user_id__icontains=query)
+                | Q(barcode__icontains=query)
+            )
+            if query.isdigit():
+                q_filter |= Q(id=int(query))
+            queryset = queryset.filter(q_filter)
+
+        if status_filter == "enrolled":
+            queryset = queryset.filter(is_face_enrolled=True)
+        elif status_filter == "pending":
+            queryset = queryset.filter(is_face_enrolled=False)
+
+        # Total enrolled today (Africa/Addis_Ababa timezone)
+        now_addis = timezone.now().astimezone(ADDIS_TZ)
+        today_date = now_addis.date()
+        start_of_day = timezone.make_aware(datetime.combine(today_date, datetime.min.time()), ADDIS_TZ)
+        end_of_day = timezone.make_aware(datetime.combine(today_date, datetime.max.time()), ADDIS_TZ)
+
+        enrolled_today_count = MemberProfile.objects.filter(
+            is_face_enrolled=True,
+            face_enrolled_at__range=(start_of_day, end_of_day)
+        ).count()
+
+        total_count = queryset.count()
+        # Return first 100 matching records
+        results = queryset[:100]
+        serializer = FaceEnrollmentMemberSerializer(results, many=True)
+
+        return Response({
+            "total_count": total_count,
+            "enrolled_today": enrolled_today_count,
+            "results": serializer.data,
+        }, status=status.HTTP_200_OK)
+
+
+class ToggleFaceEnrollmentView(APIView):
+    """
+    Mark member as enrolled in face scanner.
+    Pure marker in DB as requested — does not trigger /api/enroll.
+    """
+    permission_classes = [IsFaceEnroller]
+
+    def post(self, request, pk):
+        try:
+            profile = MemberProfile.objects.select_related("user").get(pk=pk)
+        except MemberProfile.DoesNotExist:
+            return Response({"error": "Member not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        if "enrolled" in request.data:
+            target_status = bool(request.data.get("enrolled"))
+        else:
+            target_status = not profile.is_face_enrolled
+
+        profile.is_face_enrolled = target_status
+        if target_status:
+            profile.face_enrolled_at = timezone.now()
+        else:
+            profile.face_enrolled_at = None
+
+        profile.save(update_fields=["is_face_enrolled", "face_enrolled_at"])
+
+        return Response({
+            "success": True,
+            "id": profile.id,
+            "full_name": f"{profile.user.first_name} {profile.user.last_name}".strip(),
+            "is_face_enrolled": profile.is_face_enrolled,
+            "face_enrolled_at": profile.face_enrolled_at,
+            "message": f"Member marked as {'enrolled' if profile.is_face_enrolled else 'pending enrollment'}"
+        }, status=status.HTTP_200_OK)

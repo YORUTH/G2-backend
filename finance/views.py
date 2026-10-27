@@ -267,6 +267,9 @@ def get_telegram_message_payload(data, start_date, end_date):
         ],
         [
             {"text": "🏷️ Discounts", "callback_data": f"val|Discounts|{summary.get('discount_total', 0)}"}
+        ],
+        [
+            {"text": "👤 Face Enrolled Today", "callback_data": "face_enrolled_today"}
         ]
     ]
     return text, inline_keyboard

@@ -29,6 +29,7 @@ class User(AbstractBaseUser, PermissionsMixin):
         ("lockerreceptionist", "Locker Receptionist"),
         ("trainer", "Trainer"),
         ("member", "Member"),
+        ("face_enroller", "Face Enroller"),
     )
     role = models.CharField(max_length=20, choices=ROLE_CHOICES)
 
