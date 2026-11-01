@@ -18,6 +18,14 @@ from socketserver import ThreadingMixIn
 from datetime import datetime
 
 # Setup safe stdout/stderr logging when running headless via pythonw
+try:
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    if hasattr(sys.stderr, "reconfigure"):
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+except Exception:
+    pass
+
 if sys.executable.lower().endswith("pythonw.exe") or sys.stdout is None:
     try:
         _log_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "zk_server.log")
@@ -57,7 +65,7 @@ _checkin_debounce = {}  # pin -> last push timestamp
 def push_checkin_to_cloud(pin):
     """POST face check-in to the deployed API in a background thread.
     Debounces: won't re-push the same PIN within 30 seconds."""
-    if not pin or pin in ("SYSTEM", "UNKNOWN", "Realtime Event"):
+    if not pin or str(pin) in ("SYSTEM", "UNKNOWN", "Realtime Event", "0"):
         return
     now = time.time()
     last = _checkin_debounce.get(pin, 0)
@@ -81,16 +89,20 @@ def push_checkin_to_cloud(pin):
                 result = json.loads(resp.read().decode())
                 name = result.get("member", pin)
                 if result.get("duplicate"):
-                    print(f"[CLOUD CHECKIN] {name} (PIN {pin}) — already checked in today")
+                    print(f"[CLOUD CHECKIN] {name} (PIN {pin}) - already checked in today")
                 else:
-                    print(f"[CLOUD CHECKIN] ✓ {name} (PIN {pin}) — checked in successfully!")
+                    print(f"[CLOUD CHECKIN] [OK] {name} (PIN {pin}) - checked in successfully!")
         except urllib.error.HTTPError as e:
             body = e.read().decode("utf-8", errors="ignore")[:200]
-            print(f"[CLOUD CHECKIN] ✗ PIN {pin} — HTTP {e.code}: {body}")
+            print(f"[CLOUD CHECKIN] [FAIL] PIN {pin} - HTTP {e.code}: {body}")
         except Exception as e:
-            print(f"[CLOUD CHECKIN] ✗ PIN {pin} — {e}")
-        # Immediately trigger heartbeat sync after scan so cloud gets updated logs
-        sync_heartbeat_to_cloud()
+            print(f"[CLOUD CHECKIN] [ERR] PIN {pin} - {e}")
+        finally:
+            # Immediately trigger heartbeat sync after scan so cloud gets updated logs
+            try:
+                sync_heartbeat_to_cloud()
+            except Exception:
+                pass
 
     threading.Thread(target=_do_push, daemon=True).start()
 
@@ -140,6 +152,7 @@ server_state = {
     "pin_names": {}, # pin -> member full name
     "enrolled_pins": [], # list of pins with confirmed face enrollment
     "cmd_counter": 1,
+    "log_counter": 0,
     "scan_enabled": True
 }
 
@@ -886,8 +899,9 @@ class ZKHandler(BaseHTTPRequestHandler):
 
                 photo_url = None
 
+                server_state["log_counter"] = server_state.get("log_counter", 0) + 1
                 log_entry = {
-                    "id": len(server_state["logs"]) + 1,
+                    "id": server_state["log_counter"],
                     "sn": sn,
                     "pin": pin,
                     "time": punch_time,
@@ -903,6 +917,9 @@ class ZKHandler(BaseHTTPRequestHandler):
                 if pin and pin not in ("SYSTEM", "UNKNOWN", "Realtime Event", "0") and pin.isdigit() and int(pin) > 0:
                     push_checkin_to_cloud(pin)
 
+                # Push heartbeat to cloud immediately so web app status cache updates in real-time
+                threading.Thread(target=sync_heartbeat_to_cloud, daemon=True).start()
+
                 # If this is a verified face recognition punch and face was not verified yet
                 if (event_code in ("0", "3", "27") or str(verify_type) in ("15", "20", "25")):
                     if pin and pin not in ("SYSTEM", "UNKNOWN", "Realtime Event", "0") and pin not in server_state.setdefault("face_verified_pins", []):
@@ -917,8 +934,9 @@ class ZKHandler(BaseHTTPRequestHandler):
                             record_machine_event("member_enrolled", p)
                             break
 
+                server_state["log_counter"] = server_state.get("log_counter", 0) + 1
                 log_entry = {
-                    "id": len(server_state["logs"]) + 1,
+                    "id": server_state["log_counter"],
                     "sn": sn,
                     "pin": "SYSTEM",
                     "time": now_str,
@@ -995,8 +1013,9 @@ class ZKHandler(BaseHTTPRequestHandler):
         """Newer push log payload"""
         sn = query.get("SN", ["UNKNOWN"])[0]
         now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        server_state["log_counter"] = server_state.get("log_counter", 0) + 1
         log_entry = {
-            "id": len(server_state["logs"]) + 1,
+            "id": server_state["log_counter"],
             "sn": sn,
             "pin": "Realtime Event",
             "time": now_str,
