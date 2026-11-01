@@ -17,6 +17,32 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 from socketserver import ThreadingMixIn
 from datetime import datetime
 
+# Setup safe stdout/stderr logging when running headless via pythonw
+if sys.executable.lower().endswith("pythonw.exe") or sys.stdout is None:
+    try:
+        _log_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "zk_server.log")
+        _log_fh = open(_log_path, "a", encoding="utf-8", buffering=1)
+        sys.stdout = _log_fh
+        sys.stderr = _log_fh
+    except Exception:
+        pass
+
+PID_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "zk_server.pid")
+
+def write_pid():
+    try:
+        with open(PID_FILE, "w", encoding="utf-8") as f:
+            f.write(str(os.getpid()))
+    except Exception:
+        pass
+
+def remove_pid():
+    try:
+        if os.path.exists(PID_FILE):
+            os.remove(PID_FILE)
+    except Exception:
+        pass
+
 PORT = int(os.environ.get("ZK_PORT", 8088))
 DEVICE_IP = os.environ.get("ZK_DEVICE_IP", "192.168.1.201")
 PC_IP = os.environ.get("ZK_PC_IP", "192.168.1.200")
@@ -166,18 +192,35 @@ def record_machine_event(event_type, pin, name=None):
     print(f"[MACHINE NOTIFICATION] *** {event_type.upper()}: {msg} ***")
     threading.Thread(target=sync_heartbeat_to_cloud, daemon=True).start()
 
-def check_ping():
+_last_ping_time = 0.0
+_ping_cache_interval = 10.0  # seconds
+
+def check_ping(force=False):
+    global _last_ping_time
+    now = time.time()
+    if not force and (now - _last_ping_time) < _ping_cache_interval:
+        return server_state.get("ping_ok", False)
+    _last_ping_time = now
+
     try:
+        kwargs = {
+            "stdout": subprocess.PIPE,
+            "stderr": subprocess.PIPE,
+            "text": True,
+            "timeout": 2.0,
+        }
         if sys.platform == "win32":
             cmd = ["ping", "-n", "1", "-w", "1000", DEVICE_IP]
+            # CRITICAL: Prevent any console/terminal window from popping up on Windows
+            kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
+            startupinfo = subprocess.STARTUPINFO()
+            startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+            startupinfo.wShowWindow = 0  # SW_HIDE
+            kwargs["startupinfo"] = startupinfo
         else:
             cmd = ["ping", "-c", "1", "-W", "1", DEVICE_IP]
-        res = subprocess.run(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True
-        )
+
+        res = subprocess.run(cmd, **kwargs)
         server_state["last_ping_check"] = datetime.now().strftime("%H:%M:%S")
         stdout = res.stdout or ""
         is_windows_error = "Destination host unreachable" in stdout or "Request timed out" in stdout
@@ -704,6 +747,7 @@ class ZKHandler(BaseHTTPRequestHandler):
             "PhotoStamp=0",
             "ErrorDelay=30",
             "Delay=2",
+            f"DateTime={datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
             "TransTimes=00:00 23:59",
             "TransInterval=1",
             "TransFlag=111111111111",
@@ -807,15 +851,19 @@ class ZKHandler(BaseHTTPRequestHandler):
 
             # 5. Process face scan attendance events (ATTLOG / rtlog)
             if table in ("ATTLOG", "rtlog") or "time" in kv or "pin" in kv:
+                event_code = "0"
+                verify_type = "15"
                 if kv:
                     punch_time = kv.get("time", now_str)
                     pin = kv.get("pin", "1")
                     event_code = kv.get("event", "0")
+                    verify_type = kv.get("verifytype", "15")
                     event_map = {
                         "0": "Face (Visible Light)",
                         "3": "Face (Visible Light Verified)",
                         "27": "Visible Light Face",
                         "200": "Door Open",
+                        "206": "Face Detected / Realtime",
                         "255": "Unknown Face"
                     }
                     v_name = event_map.get(event_code, f"Biometric Face (Code {event_code})")
@@ -851,13 +899,13 @@ class ZKHandler(BaseHTTPRequestHandler):
                 server_state["logs"].insert(0, log_entry)
                 print(f"[ADMS FACE SCAN] *** USER {pin} SCANNED FACE AT {punch_time} ({v_name}) ***")
 
-                # Auto-push check-in to the deployed cloud API
-                if pin and pin not in ("SYSTEM", "UNKNOWN", "Realtime Event"):
+                # Auto-push check-in to the deployed cloud API (only valid enrolled member PINs > 0)
+                if pin and pin not in ("SYSTEM", "UNKNOWN", "Realtime Event", "0") and pin.isdigit() and int(pin) > 0:
                     push_checkin_to_cloud(pin)
 
                 # If this is a verified face recognition punch and face was not verified yet
-                if (event_code in ("0", "3", "27") or verify_type in ("15", "20", "25")):
-                    if pin and pin not in ("SYSTEM", "UNKNOWN", "Realtime Event") and pin not in server_state.setdefault("face_verified_pins", []):
+                if (event_code in ("0", "3", "27") or str(verify_type) in ("15", "20", "25")):
+                    if pin and pin not in ("SYSTEM", "UNKNOWN", "Realtime Event", "0") and pin not in server_state.setdefault("face_verified_pins", []):
                         server_state["face_verified_pins"].append(pin)
                         record_machine_event("member_enrolled", pin)
             else:
@@ -1766,8 +1814,21 @@ class ZKHandler(BaseHTTPRequestHandler):
         self.wfile.write(html.encode("utf-8"))
 
 def run():
+    write_pid()
+    import atexit
+    atexit.register(remove_pid)
+
     server_address = ("0.0.0.0", PORT)
-    httpd = ThreadedHTTPServer(server_address, ZKHandler)
+    try:
+        httpd = ThreadedHTTPServer(server_address, ZKHandler)
+    except OSError as e:
+        # 10048: Address in use, 10013: Port already bound / permission denied on Windows
+        winerror = getattr(e, "winerror", None)
+        err_msg = str(e).lower()
+        if winerror in (10048, 10013) or "address already in use" in err_msg or "access permissions" in err_msg:
+            print(f"[ALREADY RUNNING] zk_server is already running on port {PORT} (WinError {winerror}). Exiting gracefully.")
+            sys.exit(0)
+        raise
     print(f"===========================================================")
     print(f"  ZKTeco SenseFace 2A ADMS Controller & Face Monitor")
     print(f"  Active on http://{PC_IP}:{PORT} and http://localhost:{PORT}")
