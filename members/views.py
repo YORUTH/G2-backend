@@ -1,3 +1,4 @@
+from django.conf import settings
 from rest_framework import generics, permissions
 from rest_framework.permissions import AllowAny
 from .models import PACKAGE_DURATION, MemberProfile
@@ -243,12 +244,41 @@ class BarcodeCheckInView(APIView):
         }, status=200)
 
 
-class FaceCheckInView(APIView):
-    """Check-in directly triggered by ZKTeco SenseFace 2A scanner PIN."""
+import time as pytime
 
-    permission_classes = [IsManagerOrReceptionist]
+# Module-level cache for live scanner status reported by zk_server.py
+_latest_scanner_status = {
+    "ping_ok": False,
+    "device_ip": "192.168.1.201",
+    "pc_ip": "192.168.1.200",
+    "last_seen": 0,
+    "devices": {},
+    "logs": [],
+    "events": [],
+}
+
+
+class FaceCheckInView(APIView):
+    """Check-in directly triggered by ZKTeco SenseFace 2A scanner PIN.
+    Accepts either JWT auth (web app) or X-Device-Key header (zk_server.py)."""
+
+    permission_classes = [AllowAny]
+
+    def _is_authorized(self, request):
+        # Allow authenticated managers/receptionists
+        if request.user and request.user.is_authenticated:
+            if request.user.role in ("manager", "receptionist", "lockerreceptionist"):
+                return True
+        # Allow device API key from zk_server.py
+        device_key = request.headers.get("X-Device-Key", "")
+        expected_key = getattr(settings, "ZK_DEVICE_API_KEY", "") or "g2gym_zk_secret_2026"
+        if device_key and expected_key and device_key == expected_key:
+            return True
+        return False
 
     def post(self, request, machine_user_id):
+        if not self._is_authorized(request):
+            return Response({"detail": "Authentication required."}, status=403)
         member = find_member_for_checkin(machine_user_id)
         if not member:
             return Response({
@@ -269,10 +299,10 @@ class FaceCheckInView(APIView):
             }, status=403)
 
         # Prevent duplicate daily check-in
-        from datetime import datetime, time
+        from datetime import datetime as dt, time as dt_time
         today = timezone.localdate()
-        start_of_day = timezone.make_aware(datetime.combine(today, time.min))
-        end_of_day = timezone.make_aware(datetime.combine(today, time.max))
+        start_of_day = timezone.make_aware(dt.combine(today, dt_time.min))
+        end_of_day = timezone.make_aware(dt.combine(today, dt_time.max))
 
         existing_checkin = CheckIn.objects.filter(
             member=member,
@@ -281,6 +311,20 @@ class FaceCheckInView(APIView):
         ).order_by('-timestamp').first()
 
         if existing_checkin:
+            # If created within the last 15 seconds (e.g. pushed by zk_server.py bridge right now),
+            # return as success rather than duplicate warning so UI displays the check-in card
+            age_seconds = (now - existing_checkin.timestamp).total_seconds()
+            if age_seconds < 15:
+                return Response({
+                    "valid": True,
+                    "duplicate": False,
+                    "member": member.user.first_name,
+                    "package_type": member.package_type,
+                    "end_date": member.end_date,
+                    "message": "Check-in successful via SenseFace 2A scanner!",
+                    "checkin": CheckInSerializer(existing_checkin).data
+                }, status=200)
+
             return Response({
                 "valid": True,
                 "duplicate": True,
@@ -306,16 +350,70 @@ class FaceCheckInView(APIView):
 
 
 class ScannerStatusProxyView(APIView):
-    """Proxy live device status from local zk_server.py so web clients can poll securely."""
+    """Proxy live device status from local zk_server.py so web clients can poll securely.
+    Supports GET (web app polling) and POST (heartbeat reported by zk_server.py bridge)."""
 
     permission_classes = [AllowAny]
+
+    def _is_device_authorized(self, request):
+        if request.user and request.user.is_authenticated:
+            return True
+        device_key = request.headers.get("X-Device-Key", "")
+        expected_key = getattr(settings, "ZK_DEVICE_API_KEY", "") or "g2gym_zk_secret_2026"
+        return bool(device_key and expected_key and device_key == expected_key)
+
+    def post(self, request):
+        """Heartbeat reported by zk_server.py running as a background service on the gym PC."""
+        if not self._is_device_authorized(request):
+            return Response({"detail": "Authentication required."}, status=403)
+        data = request.data
+        if not isinstance(data, dict):
+            return Response({"error": "Invalid format"}, status=400)
+
+        data["last_seen"] = pytime.time()
+        global _latest_scanner_status
+        _latest_scanner_status = data
+        try:
+            from django.core.cache import cache
+            cache.set("zk_scanner_status_cache", data, timeout=60)
+        except Exception:
+            pass
+        return Response({"ok": True})
 
     def get(self, request):
         import urllib.request
         import json
+
+        now = pytime.time()
+        cached = None
+        try:
+            from django.core.cache import cache
+            cached = cache.get("zk_scanner_status_cache")
+        except Exception:
+            pass
+        if not cached:
+            global _latest_scanner_status
+            cached = _latest_scanner_status
+
+        last_seen = cached.get("last_seen", 0) if cached else 0
+
+        # 1. If we have a fresh cloud heartbeat (< 45s) from zk_server.py, return it
+        if cached and (now - last_seen) < 45 and (cached.get("ping_ok") or cached.get("devices") or cached.get("logs")):
+            events = cached.get("events", [])
+            for ev in events:
+                pin = str(ev.get("pin", "")).strip()
+                if not ev.get("name") and pin:
+                    member = find_member_for_checkin(pin)
+                    if member:
+                        ev["name"] = f"{member.user.first_name} {member.user.last_name}".strip()
+                display_name = f" ({ev['name']})" if ev.get("name") else ""
+                ev["message"] = f"User {pin}{display_name} enrolled successfully"
+            return Response(cached, status=200)
+
+        # 2. Local fallback: If backend and zk_server are running on the same local PC
         try:
             req = urllib.request.Request("http://localhost:8088/api/status")
-            with urllib.request.urlopen(req, timeout=1.8) as resp:
+            with urllib.request.urlopen(req, timeout=1.2) as resp:
                 data = json.loads(resp.read().decode())
                 events = data.get("events", [])
                 for ev in events:
@@ -327,14 +425,21 @@ class ScannerStatusProxyView(APIView):
                     display_name = f" ({ev['name']})" if ev.get("name") else ""
                     ev["message"] = f"User {pin}{display_name} enrolled successfully"
                 return Response(data, status=200)
-        except Exception as e:
-            return Response({
-                "ping_ok": False,
-                "device_ip": "192.168.1.201",
-                "error": f"SenseFace 2A server offline or unreachable: {str(e)}",
-                "logs": [],
-                "events": []
-            }, status=200)
+        except Exception:
+            pass
+
+        # 3. Offline status
+        return Response({
+            "ping_ok": False,
+            "device_ip": cached.get("device_ip", "192.168.1.201") if cached else "192.168.1.201",
+            "pc_ip": cached.get("pc_ip", "192.168.1.200") if cached else "192.168.1.200",
+            "error": "SenseFace 2A scanner offline or bridge not reporting",
+            "last_heartbeat": last_seen,
+            "devices": {},
+            "logs": [],
+            "events": []
+        }, status=200)
+
 
 
 class RecentCheckInsView(generics.ListAPIView):

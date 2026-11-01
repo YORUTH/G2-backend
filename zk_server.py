@@ -9,14 +9,94 @@ import os
 import json
 import time
 import subprocess
+import threading
 import urllib.parse
+import urllib.request
+import urllib.error
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from socketserver import ThreadingMixIn
 from datetime import datetime
 
-PORT = 8088
-DEVICE_IP = "192.168.1.201"
-PC_IP = "192.168.1.200"
+PORT = int(os.environ.get("ZK_PORT", 8088))
+DEVICE_IP = os.environ.get("ZK_DEVICE_IP", "192.168.1.201")
+PC_IP = os.environ.get("ZK_PC_IP", "192.168.1.200")
+
+# Cloud API for pushing check-ins and device status to the deployed web app
+CLOUD_API_URL = os.environ.get("ZK_CLOUD_API_URL", "https://api.jitugym.com").rstrip("/")
+DEVICE_API_KEY = os.environ.get("ZK_DEVICE_API_KEY", "g2gym_zk_secret_2026")
+
+# ── Auto check-in push ──────────────────────────────────────────────
+_checkin_debounce = {}  # pin -> last push timestamp
+
+def push_checkin_to_cloud(pin):
+    """POST face check-in to the deployed API in a background thread.
+    Debounces: won't re-push the same PIN within 30 seconds."""
+    if not pin or pin in ("SYSTEM", "UNKNOWN", "Realtime Event"):
+        return
+    now = time.time()
+    last = _checkin_debounce.get(pin, 0)
+    if now - last < 30:
+        return
+    _checkin_debounce[pin] = now
+
+    def _do_push():
+        url = f"{CLOUD_API_URL}/api/members/checkin/face/{pin}/"
+        try:
+            req = urllib.request.Request(
+                url,
+                data=b'{}',
+                headers={
+                    "Content-Type": "application/json",
+                    "X-Device-Key": DEVICE_API_KEY,
+                },
+                method="POST"
+            )
+            with urllib.request.urlopen(req, timeout=8) as resp:
+                result = json.loads(resp.read().decode())
+                name = result.get("member", pin)
+                if result.get("duplicate"):
+                    print(f"[CLOUD CHECKIN] {name} (PIN {pin}) — already checked in today")
+                else:
+                    print(f"[CLOUD CHECKIN] ✓ {name} (PIN {pin}) — checked in successfully!")
+        except urllib.error.HTTPError as e:
+            body = e.read().decode("utf-8", errors="ignore")[:200]
+            print(f"[CLOUD CHECKIN] ✗ PIN {pin} — HTTP {e.code}: {body}")
+        except Exception as e:
+            print(f"[CLOUD CHECKIN] ✗ PIN {pin} — {e}")
+        # Immediately trigger heartbeat sync after scan so cloud gets updated logs
+        sync_heartbeat_to_cloud()
+
+    threading.Thread(target=_do_push, daemon=True).start()
+
+def sync_heartbeat_to_cloud():
+    """Push live scanner status to cloud backend so deployed web app sees online status & events."""
+    if not CLOUD_API_URL:
+        return
+    url = f"{CLOUD_API_URL}/api/members/scanner/status/"
+    try:
+        check_ping()
+        payload = json.dumps({
+            "ping_ok": server_state.get("ping_ok", False),
+            "ping_latency_ms": server_state.get("ping_latency_ms"),
+            "device_ip": DEVICE_IP,
+            "pc_ip": PC_IP,
+            "devices": server_state.get("devices", {}),
+            "logs": server_state.get("logs", [])[:25],
+            "events": server_state.get("events", [])[:15],
+        }).encode("utf-8")
+        req = urllib.request.Request(
+            url,
+            data=payload,
+            headers={
+                "Content-Type": "application/json",
+                "X-Device-Key": DEVICE_API_KEY,
+            },
+            method="POST"
+        )
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            pass
+    except Exception:
+        pass
 
 # Global state
 server_state = {
@@ -84,23 +164,33 @@ def record_machine_event(event_type, pin, name=None):
         server_state["events"] = recent_events[:100]
 
     print(f"[MACHINE NOTIFICATION] *** {event_type.upper()}: {msg} ***")
+    threading.Thread(target=sync_heartbeat_to_cloud, daemon=True).start()
 
 def check_ping():
     try:
+        if sys.platform == "win32":
+            cmd = ["ping", "-n", "1", "-w", "1000", DEVICE_IP]
+        else:
+            cmd = ["ping", "-c", "1", "-W", "1", DEVICE_IP]
         res = subprocess.run(
-            ["ping", "-c", "1", "-W", "1", DEVICE_IP],
+            cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True
         )
         server_state["last_ping_check"] = datetime.now().strftime("%H:%M:%S")
-        if res.returncode == 0:
+        stdout = res.stdout or ""
+        is_windows_error = "Destination host unreachable" in stdout or "Request timed out" in stdout
+        if res.returncode == 0 and not is_windows_error and ("time=" in stdout or "time<" in stdout or "bytes=" in stdout):
             server_state["ping_ok"] = True
-            for line in res.stdout.splitlines():
-                if "time=" in line:
+            for line in stdout.splitlines():
+                if "time=" in line or "time<" in line:
                     try:
-                        ms = line.split("time=")[1].split()[0]
-                        server_state["ping_latency_ms"] = float(ms)
+                        if "time<" in line:
+                            server_state["ping_latency_ms"] = 0.5
+                        else:
+                            ms = line.split("time=")[1].split()[0].replace("ms", "")
+                            server_state["ping_latency_ms"] = float(ms)
                     except:
                         server_state["ping_latency_ms"] = 0.5
                     break
@@ -155,6 +245,14 @@ class ZKHandler(BaseHTTPRequestHandler):
         if len(args) > 0 and "/api/status" in str(args[0]):
             return
         print(f"[{datetime.now().strftime('%H:%M:%S')}] {args[0]} - {args[1]}")
+
+    def do_OPTIONS(self):
+        self.send_response(204)
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, X-Device-Key, Accept")
+        self.send_header("Access-Control-Max-Age", "86400")
+        self.end_headers()
 
     def do_GET(self):
         parsed = urllib.parse.urlparse(self.path)
@@ -752,6 +850,10 @@ class ZKHandler(BaseHTTPRequestHandler):
                 }
                 server_state["logs"].insert(0, log_entry)
                 print(f"[ADMS FACE SCAN] *** USER {pin} SCANNED FACE AT {punch_time} ({v_name}) ***")
+
+                # Auto-push check-in to the deployed cloud API
+                if pin and pin not in ("SYSTEM", "UNKNOWN", "Realtime Event"):
+                    push_checkin_to_cloud(pin)
 
                 # If this is a verified face recognition punch and face was not verified yet
                 if (event_code in ("0", "3", "27") or verify_type in ("15", "20", "25")):
@@ -1670,7 +1772,21 @@ def run():
     print(f"  ZKTeco SenseFace 2A ADMS Controller & Face Monitor")
     print(f"  Active on http://{PC_IP}:{PORT} and http://localhost:{PORT}")
     print(f"  SenseFace 2A Terminal IP: {DEVICE_IP}")
+    print(f"  Cloud Bridge URL: {CLOUD_API_URL}")
     print(f"===========================================================")
+
+    # Background heartbeat thread to keep deployed cloud web app in sync
+    def _background_heartbeat_loop():
+        time.sleep(2)
+        while True:
+            try:
+                sync_heartbeat_to_cloud()
+            except Exception:
+                pass
+            time.sleep(8)
+
+    threading.Thread(target=_background_heartbeat_loop, daemon=True).start()
+
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:
