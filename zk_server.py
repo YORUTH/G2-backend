@@ -56,7 +56,13 @@ DEVICE_IP = os.environ.get("ZK_DEVICE_IP", "192.168.1.201")
 PC_IP = os.environ.get("ZK_PC_IP", "192.168.1.200")
 
 # Cloud API for pushing check-ins and device status to the deployed web app
-CLOUD_API_URL = os.environ.get("ZK_CLOUD_API_URL", "https://api.jitugym.com").rstrip("/")
+_configured_cloud = os.environ.get("ZK_CLOUD_API_URL", "").rstrip("/")
+CLOUD_API_URL = (
+    _configured_cloud
+    if _configured_cloud.startswith("http://localhost")
+    or _configured_cloud.startswith("http://127.0.0.1")
+    else "https://apijitugym.yonas.cloud"
+)
 DEVICE_API_KEY = os.environ.get("ZK_DEVICE_API_KEY", "g2gym_zk_secret_2026")
 
 # ── Auto check-in push ──────────────────────────────────────────────
